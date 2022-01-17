@@ -36,7 +36,7 @@ data = pickle.load(open("data/data.pickle", "rb"), encoding="latin-1")
 x_train = torch.tensor(data['x_train'], dtype=torch.float)#[:10,:]
 y_train = torch.tensor(data['y_train'], dtype=torch.float)#[:10]
 
-model = Mlp(2, 100, 1, 1)
+model = Mlp(2, 100, 1, 2)
 model = TaylorAnalysis(model)
 optim = torch.optim.Adam(model.parameters(), lr=0.001)
 crit = nn.BCELoss()
@@ -47,7 +47,7 @@ x_train=x_train.to(device)
 y_train=y_train.to(device)
 model.to(device)
 
-
+x_train.requires_grad = True
 for epoch in range(200):
     optim.zero_grad()
     pred = model(x_train)
@@ -55,11 +55,11 @@ for epoch in range(200):
     loss.backward()
     optim.step()
     print('Epoch {}: Loss: {:.3f}'.format(epoch+1, loss))
-    model.tc_checkpoint(x_train, order=2)
+    #model.tc_checkpoint(x_train, order=2)
 
 del x_train, y_train
 
-x_test = torch.tensor(data['x_test'], dtype=torch.float).to(device)
+x_test = torch.tensor(data['x_test'], dtype=torch.float)[:2000,:].to(device)
 
 model.plot_tc(data=x_test, names=['x1', 'x2'], path='/work/lsowa/taylorcoefficients/', order=3)
 

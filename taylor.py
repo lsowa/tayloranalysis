@@ -7,13 +7,13 @@ from datetime import datetime
 from torch import nn
 from torch.autograd.functional import jacobian
 from torch.utils.data import TensorDataset, DataLoader
-
+from torch.autograd import grad
 
 def seq_exec(func):
     """Wrap a function with input data, execute the function sequentially on the 
     data and merge the results. This is meant to avoid memory allocation errors."""
     def wrapped_func(self, data, order):
-        batch_size=data.shape[0]
+        batch_size=100#data.shape[0]
         while True:
             try:
                 output = []
@@ -45,65 +45,80 @@ class TaylorAnalysis(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-    @seq_exec
-    def tc_mean(self, data, order=2):
-        '''Calc <t_i> and return it as num,py array (!)'''
-        self.order = order
-        derivated_model_func = self._choose_order(order)
-        data = torch.abs(derivated_model_func(data))
+    def mean(self, data):
+        data = torch.abs(data)
         data = torch.mean(data, dim=0)
         return data.cpu().detach().numpy()
-
-    #@seq_exec(100)
-    def _first_order(self, x_data):
-        '''first order derivative'''
-        return jacobian(self.__call__, x_data, create_graph=self.order>1, strict=True, vectorize=False).sum(-2)
-
-    #@seq_exec(40)
-    def _second_order(self, x_data):
-        '''second order derivative'''
-        return jacobian(self._first_order, x_data, create_graph=self.order>2, strict=True, vectorize=False).sum(-2)
-
-    #@seq_exec(15)
-    def _third_order(self, x_data):
-        '''third order derivative'''
-        return jacobian(self._second_order, x_data, create_graph=self.order>3, strict=True, vectorize=False).sum(-2)
     
-    def _choose_order(self, order):
-        if order == 1: return self._first_order
-        elif order == 2: return self._second_order
-        elif order == 3: return self._third_order
+    def _first_order(self, x_data):
+        x_data.requires_grad = True
+        self.model.zero_grad()
+        x_data.grad = None
+        pred = self.model(x_data)
+        pred = pred.sum()
+        # first order grads
+        gradients = grad(pred, x_data) 
+        return self.mean(gradients[0])
+
+    def _second_order(self, x_data, ind_i):
+        x_data.requires_grad = True
+        self.model.zero_grad()
+        x_data.grad = None
+        pred = self.model(x_data)
+        pred = pred.sum()
+        # first order grads
+        gradients = grad(pred, x_data, create_graph=True) 
+        gradients = gradients[0].sum(dim=0)
+        # second order grads
+        gradients = grad(gradients[ind_i], x_data) 
+        return self.mean(gradients[0])
+
+    def _third_order(self, x_data, ind_i, ind_j):
+        x_data.requires_grad = True
+        self.model.zero_grad()
+        x_data.grad = None
+        pred = self.model(x_data)
+        pred = pred.sum()
+        # first order grads
+        gradients = grad(pred, x_data, create_graph=True)
+        gradients = gradients[0].sum(dim=0)
+        # second order grads
+        gradients = grad(gradients[ind_i], x_data, create_graph=True) 
+        gradients = gradients[0].sum(dim=0)
+        # third order grads
+        gradients = grad(gradients[ind_j], x_data) 
+        return self.mean(gradients[0])
 
     def plot_tc(self, data, names, path, order=2):
         '''Plot <t_i> for given input data.'''
 
         # first order
         print('Plotting first order coefficients...')
-        derivatives = self.tc_mean(data, order=1)
+        derivatives = self._first_order(data)
         for i in range(len(names)):
             plt.plot('$t_{{{}}}$'.format(names[i]), derivatives[i], 
                     '+', color='black', markersize=10)
 
         # second order
-        print('Plotting second order coefficients...')
         if order >=2:
-            derivatives = self.tc_mean(data, order=2)
+            print('Plotting second order coefficients...')
             for i in range(len(names)):
+                derivatives = self._second_order(data, i)
                 for j in range(len(names)):
                     if i<=j: # ignore diagonal elements
                         plt.plot('$t_{{{},{}}}$'.format(names[i], names[j]), 
-                                derivatives[i,j], '+', color='black', markersize=10)
-
+                                derivatives[j], '+', color='black', markersize=10)
+                            
         # third order
-        print('Plotting third order coefficients...')
         if order >=3:
-            derivatives = self.tc_mean(data, order=3)
+            print('Plotting third order coefficients...')
             for i in range(len(names)):
                 for j in range(len(names)):
+                    derivatives = self._third_order(data, i, j)
                     for k in range(len(names)):
                         if i<=j<=k:  # ignore diagonal elements
                             plt.plot('$t_{{{},{},{}}}$'.format(names[i], names[j], names[k]), 
-                                    derivatives[i,j,k], '+', color='black', markersize=10)
+                                    derivatives[k], '+', color='black', markersize=10)
 
         plt.ylabel('$<t_i>$', loc='top', fontsize=13)
         plt.xticks(rotation=45)
@@ -114,14 +129,13 @@ class TaylorAnalysis(nn.Module):
 
     def tc_checkpoint(self, x_data, order=1):
         '''Save coefficients during training.'''
-        self.eval()
         if order >= 1:
-            self.checkpoints_first_order.append(self.tc_mean(x_data, order=1))
+            
+            self.checkpoints_first_order.append()
         if order >= 2:
             self.checkpoints_second_order.append(self.tc_mean(x_data, order=2))
         if order >= 3:
             self.checkpoints_third_order.append(self.tc_mean(x_data, order=3))
-        self.train()
         
     def tc_plt_checkpoints(self, names, path):
         '''Plot saved coefficients from training.'''
