@@ -55,7 +55,7 @@ for epoch in range(200):
     loss.backward()
     optim.step()
     print('Epoch {}: Loss: {:.3f}'.format(epoch+1, loss))
-    #model.tc_checkpoint(x_train, order=2)
+    model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
 
 del x_train, y_train
 
@@ -63,6 +63,5 @@ x_test = torch.tensor(data['x_test'], dtype=torch.float)[:2000,:].to(device)
 
 model.plot_tc(data=x_test, names=['x1', 'x2'], path='/work/lsowa/taylorcoefficients/', order=3)
 
-#model.tc_plt_checkpoints(names=['x1', 'x2'], path='/work/lsowa/taylorcoefficients/')
-
+model.plt_checkpoints(path='/work/lsowa/taylorcoefficients/')
 
