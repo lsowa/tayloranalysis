@@ -1,1 +1,4 @@
-
+*.png
+__ pycache __/
+workspace.code-workspace
+.nfs*

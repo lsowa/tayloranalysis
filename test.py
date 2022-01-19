@@ -1,9 +1,16 @@
 import torch
 import pickle
-import sklearn
 
 from torch import nn
-from taylor import TaylorAnalysis
+from tayloranalysis import TaylorAnalysis
+
+# load data
+
+data = pickle.load(open("data/data.pickle", "rb"), encoding="latin-1")
+x_train = torch.tensor(data['x_train'], dtype=torch.float)
+y_train = torch.tensor(data['y_train'], dtype=torch.float)
+
+# initialize nomral pytorch model
 
 class Mlp(nn.Module):
     
@@ -31,18 +38,16 @@ class Mlp(nn.Module):
         x = torch.sigmoid(x)
         return x
 
-data = pickle.load(open("data/data.pickle", "rb"), encoding="latin-1")
-
-x_train = torch.tensor(data['x_train'], dtype=torch.float)#[:10,:]
-y_train = torch.tensor(data['y_train'], dtype=torch.float)#[:10]
-
 model = Mlp(2, 100, 1, 2)
+
+# wrap model
+
 model = TaylorAnalysis(model)
+
 optim = torch.optim.Adam(model.parameters(), lr=0.001)
 crit = nn.BCELoss()
 
-device=torch.device(3)
-
+device=torch.device(0)
 x_train=x_train.to(device)
 y_train=y_train.to(device)
 model.to(device)
@@ -55,13 +60,20 @@ for epoch in range(200):
     loss.backward()
     optim.step()
     print('Epoch {}: Loss: {:.3f}'.format(epoch+1, loss))
+    
+    # save current taylorcoefficients
+    
     model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
 
-del x_train, y_train
+# load test data
 
-x_test = torch.tensor(data['x_test'], dtype=torch.float)[:2000,:].to(device)
+x_test = torch.tensor(data['x_test'], dtype=torch.float).to(device)
 
-model.plot_tc(data=x_test, names=['x1', 'x2'], path='/work/lsowa/taylorcoefficients/', order=3)
+# plot taylorcoefficients after training
 
-model.plt_checkpoints(path='/work/lsowa/taylorcoefficients/')
+model.plot_tc(data=x_test, names=['x1', 'x2'], order=3)
+
+# plot saved checkpoints
+
+model.plt_checkpoints()
 

@@ -115,7 +115,7 @@ class TaylorAnalysis(nn.Module):
         gradients = grad(gradients[ind_j], x_data) 
         return self._mean(gradients[0])
 
-    def plot_tc(self, data, names, path, order=2):
+    def plot_tc(self, data, names, path='', order=2):
         """Plot taylorcoefficients for current weights of the model.
 
         Args:
@@ -196,7 +196,7 @@ class TaylorAnalysis(nn.Module):
                                 self.checkpoints[name] = []
                             self.checkpoints[name].append(coefs[k])
                         
-    def plt_checkpoints(self, path):
+    def plt_checkpoints(self, path=''):
         """Plot saved checkpoints.
 
         Args:
@@ -213,5 +213,10 @@ class TaylorAnalysis(nn.Module):
         plt.tick_params(axis='x', which='both', top=True, direction='in')
         plt.savefig(path+'tc_training.pdf', bbox_inches = "tight")
         plt.clf()
+        
+    def clear_checkpoints(self):
+        """clear saved checkpoints
+        """
+        self.checkpoints = {}
 
 
