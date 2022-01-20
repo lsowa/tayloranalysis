@@ -3,17 +3,37 @@ Pytorch implementation of the Paper
 ["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782) 
 (S. Wunsch, R. Friese, R. Wolf, G. Quast)
 
-The module computes the taylorceofficients $`t_{i} :=\partial_{i} \text{NN}(\vec{a})`$ of the taylored NN($`\vec{x}`$) function
-```math
-\text{NN}(\vec{x}) \approx & \text{ NN}(\vec{a}) \\ 
-                        & +  \partial_{x_1} \text{NN}(\vec{a}) + \partial_{x_2} \text{NN}(\vec{a})\\
-                        & + \frac{1}{2} \partial_{x_1x_1} \text{NN}(\vec{a}) + \frac{1}{2} \partial_{x_1x_2} \text{NN}(\vec{a}) + \frac{1}{2} \partial_{x_2x_2} \text{NN}(\vec{a}) \\
-                        & + \text{ ... } 
+As in the paper explained, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">. 
+
+This is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
+
+## Installation
 ```
-and averages over the inpit batch
-```math
-\left< t_i \right> = \frac{1}{N} \sum^N_k \left| t_i(\vec{a}_k) \right| && \text{for example $k$ in dataset N}.
+pip install --user git+https://github.com/lsowa/tayloranalysis.git
 ```
+
+## Usage
+
+Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. 
+```
+import tayloranalysis
+...
+model = Mlp()
+model = TaylorAnalysis(model)
+...
+for epoch in epochs:
+    ...
+    # save taylorcoefficients during training
+    model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
+    
+# plot taylorcoefficients after training
+model.plot_tc(data=x_test, names=['x1', 'x2'], path='', order=3)
+
+# plot saved checkpoints
+model.plt_checkpoints(path='')
+```
+Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
+
 
 
 
