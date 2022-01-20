@@ -1,1 +1,1 @@
-from . import tayloranalysis
+from tayloranalysis import TaylorAnalysis
