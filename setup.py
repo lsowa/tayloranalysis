@@ -12,6 +12,6 @@ setup(name='tayloranalysis',
       author='Lars Sowa',
       author_email='lars.sowa@kit.edu',
       url='https://github.com/lsowa/tayloranalysis',
-      download_url='https://github.com/lsowa/tayloranalysis/releases',
+      download_url='https://github.com/lsowa/tayloranalysis',
       packages=find_packages()
      )
