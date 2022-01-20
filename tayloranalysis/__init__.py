@@ -1,1 +1,1 @@
-from tayloranalysis import TaylorAnalysis
+from cls import TaylorAnalysis
