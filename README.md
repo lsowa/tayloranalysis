@@ -11,7 +11,7 @@ This module can be applied to each differentiable pytorch model with a scalar ou
 
 ## Installation
 ```
-pip install --user git+https://github.com/lsowa/tayloranalysis.git
+pip install git+https://github.com/lsowa/tayloranalysis.git
 ```
 
 ## Usage

@@ -126,7 +126,7 @@ class TaylorAnalysis(nn.Module):
         # first order
         derivatives = self._first_order(data)
         for i in range(len(names)):
-            plt.plot('$t_{{{}}}$'.format(names[i]), derivatives[i], 
+            plt.plot('$<t_{{{}}}>$'.format(names[i]), derivatives[i], 
                     '+', color='black', markersize=10)
 
         # second order
@@ -135,7 +135,7 @@ class TaylorAnalysis(nn.Module):
                 derivatives = self._second_order(data, i)
                 for j in range(len(names)):
                     if i<=j: # ignore diagonal elements
-                        plt.plot('$t_{{{},{}}}$'.format(names[i], names[j]), 
+                        plt.plot('$<t_{{{},{}}}$>'.format(names[i], names[j]), 
                                 derivatives[j], '+', color='black', markersize=10)
                             
         # third order
@@ -145,7 +145,7 @@ class TaylorAnalysis(nn.Module):
                     derivatives = self._third_order(data, i, j)
                     for k in range(len(names)):
                         if i<=j<=k:  # ignore diagonal elements
-                            plt.plot('$t_{{{},{},{}}}$'.format(names[i], names[j], names[k]), 
+                            plt.plot('$<t_{{{},{},{}}}>$'.format(names[i], names[j], names[k]), 
                                     derivatives[k], '+', color='black', markersize=10)
 
         plt.ylabel('$<t_i>$', loc='top', fontsize=13)
@@ -167,7 +167,7 @@ class TaylorAnalysis(nn.Module):
         if order >= 1:
             coefs= self._first_order(x_data)
             for i, name in enumerate(names):
-                name = '$t_{{{}}}$'.format(name)
+                name = '$<t_{{{}}}>$'.format(name)
                 if name not in self.checkpoints.keys(): 
                     self.checkpoints[name] = []
                 self.checkpoints[name].append(coefs[i])
@@ -178,7 +178,7 @@ class TaylorAnalysis(nn.Module):
                 coefs= self._second_order(x_data, i)
                 for j, name_j in enumerate(names):
                     if i<=j: # ignore diagonal elements
-                        name = '$t_{{{},{}}}$'.format(name_i, name_j)
+                        name = '$<t_{{{},{}}}>$'.format(name_i, name_j)
                         if name not in self.checkpoints.keys(): 
                             self.checkpoints[name] = []
                         self.checkpoints[name].append(coefs[j])
@@ -190,7 +190,7 @@ class TaylorAnalysis(nn.Module):
                     coefs= self._third_order(x_data, i, j)
                     for k, name_k in enumerate(names):
                         if i<=j<=k:  # ignore diagonal elements
-                            name = '$t_{{{},{},{}}}$'.format(name_i, name_j, name_k)
+                            name = '$<t_{{{},{},{}}}>$'.format(name_i, name_j, name_k)
                             if name not in self.checkpoints.keys(): 
                                 self.checkpoints[name] = []
                             self.checkpoints[name].append(coefs[k])

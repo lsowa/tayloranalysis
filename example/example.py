@@ -1,5 +1,6 @@
 import torch
 import pickle
+import time
 
 from torch import nn
 from tayloranalysis import TaylorAnalysis
@@ -53,6 +54,7 @@ y_train=y_train.to(device)
 model.to(device)
 
 x_train.requires_grad = True
+start = time.time()
 for epoch in range(200):
     optim.zero_grad()
     pred = model(x_train)
@@ -64,6 +66,8 @@ for epoch in range(200):
     # save current taylorcoefficients
     
     model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
+end = time.time()
+print('Time needed:', round(end - start, 2))
 
 # load test data
 
