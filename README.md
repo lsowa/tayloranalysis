@@ -7,6 +7,8 @@ As in the paper explained, the method computes the averaged taylorcoefficients o
 
 This is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
 
+This module can be applied to each differentiable pytorch model with a scalar output value.
+
 ## Installation
 ```
 pip install --user git+https://github.com/lsowa/tayloranalysis.git
