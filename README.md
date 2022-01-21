@@ -1,13 +1,13 @@
 # Taylorcoefficient Analysis
-Pytorch implementation of the Paper 
+this is a pytorch implementation of the Paper 
 ["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782) 
 (S. Wunsch, R. Friese, R. Wolf, G. Quast)
 
-As in the paper explained, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">. 
+As explained in the paper, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">. 
 
 This is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
 
-This module can be applied to each differentiable pytorch model with a scalar output value.
+This module can be applied to any differentiable pytorch model with a scalar output.
 
 ## Installation
 ```
