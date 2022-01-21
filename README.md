@@ -13,6 +13,10 @@ This module can be applied to any differentiable pytorch model with a scalar out
 ```
 pip install git+https://github.com/lsowa/tayloranalysis.git
 ```
+or from ETP gitlab
+```
+pip install git@gitlab.etp.kit.edu:lsowa/tayloranalysis.git
+```
 
 ## Usage
 
