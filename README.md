@@ -36,8 +36,9 @@ model.plt_checkpoints(path='')
 ```
 Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
 
+## Resluts
 
+![Alt text](example/coefficients.pdf?raw=true "Plottet Taylorcoefficients after Training")
 
-
-
+![Alt text](example/tc_training.pdf?raw=true "Plotted Checkpoints")
 
