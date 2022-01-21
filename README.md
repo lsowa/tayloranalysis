@@ -18,21 +18,21 @@ pip install git+https://github.com/lsowa/tayloranalysis.git
 
 Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. 
 ```
-+import tayloranalysis
+import tayloranalysis
 ...
 model = Mlp()
-+model = TaylorAnalysis(model)
+model = TaylorAnalysis(model)
 ...
 for epoch in epochs:
     ...
     # save taylorcoefficients during training
-+    model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
+    model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
     
 # plot taylorcoefficients after training
-+model.plot_tc(data=x_test, names=['x1', 'x2'], path='', order=3)
+model.plot_tc(data=x_test, names=['x1', 'x2'], path='', order=3)
 
 # plot saved checkpoints
-+model.plt_checkpoints(path='')
+model.plt_checkpoints(path='')
 ```
 Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
 
