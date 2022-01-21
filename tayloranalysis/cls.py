@@ -205,7 +205,7 @@ class TaylorAnalysis(nn.Module):
         for name, coef in self.checkpoints.items():
             plt.plot(coef, label=name)
             
-        plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.xlabel('Epoch', loc='right', fontsize=13)
         plt.ylabel('$<t_i>$', loc='top', fontsize=13)
         plt.tick_params(axis='y', which='both', right=True, direction='in')
