@@ -22,7 +22,7 @@ pip install git@gitlab.etp.kit.edu:lsowa/tayloranalysis.git
 
 Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. 
 ```
-import tayloranalysis
+from tayloranalysis import TaylorAnalysis
 ...
 model = Mlp()
 model = TaylorAnalysis(model)
