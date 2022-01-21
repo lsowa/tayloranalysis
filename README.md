@@ -36,8 +36,9 @@ model.plt_checkpoints(path='')
 ```
 Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
 
+## Resluts
 
+![Plottet Taylorcoefficients after Training](https://raw.githubusercontent.com/lsowa/tayloranalysis/blob/master/example/coefficients.pdf)
 
-
-
+![Plotted Checkpoints](https://raw.githubusercontent.com/lsowa/tayloranalysis/blob/master/example/tc_training.pdf)
 
