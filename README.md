@@ -38,7 +38,7 @@ Note that your data should be of shape (batch, features). `names` should be a li
 
 ## Resluts
 
-![Alt text](example/coefficients.pdf?raw=true "Plottet Taylorcoefficients after Training")
+![Plottet Taylorcoefficients after Training](https://github.com/lsowa/tayloranalysis/blob/master/example/coefficients.pdf)
 
-![Alt text](example/tc_training.pdf?raw=true "Plotted Checkpoints")
+![Plotted Checkpoints](https://github.com/lsowa/tayloranalysis/blob/master/example/tc_training.pdf)
 
