@@ -3,11 +3,11 @@ import pickle
 import time
 
 from torch import nn
-from tayloranalysis import TaylorAnalysis
+from ..tayloranalysis.cls import TaylorAnalysis
 
 # load data
 
-data = pickle.load(open("data/data.pickle", "rb"), encoding="latin-1")
+data = pickle.load(open("../data/data.pickle", "rb"), encoding="latin-1")
 x_train = torch.tensor(data['x_train'], dtype=torch.float)
 y_train = torch.tensor(data['y_train'], dtype=torch.float)
 
@@ -55,7 +55,7 @@ model.to(device)
 
 x_train.requires_grad = True
 start = time.time()
-for epoch in range(200):
+for epoch in range(10):
     optim.zero_grad()
     pred = model(x_train)
     loss = crit(pred, y_train)
