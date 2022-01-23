@@ -203,7 +203,7 @@ class TaylorAnalysis(nn.Module):
         """
         # color setup
         NUM_COLORS = len(self.checkpoints)
-        cm = plt.get_cmap('viridis')
+        cm = plt.get_cmap('gist_rainbow')
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
