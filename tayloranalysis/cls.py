@@ -201,9 +201,15 @@ class TaylorAnalysis(nn.Module):
         Args:
             path (str): /path/to/save/plot.pdf
         """
+        # color setup
+        NUM_COLORS = len(self.checkpoints)
+        cm = plt.get_cmap('viridis')
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
         
         for name, coef in self.checkpoints.items():
-            plt.plot(coef, label=name)
+            ax.plot(coef, label=name)
             
         plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1))
         plt.xlabel('Epoch', loc='right', fontsize=13)
