@@ -194,9 +194,9 @@ class TaylorAnalysis(nn.Module):
                     for k, name_k in enumerate(names):
                         if i<=j<=k:  # ignore diagonal elements
                             name = '$<t_{{{},{},{}}}>$'.format(name_i, name_j, name_k)
-                            if name not in self.third__order_checkpoints.keys(): 
-                                self.third__order_checkpoints[name] = []
-                            self.third__order_checkpoints[name].append(coefs[k])
+                            if name not in self.third_order_checkpoints.keys(): 
+                                self.third_order_checkpoints[name] = []
+                            self.third_order_checkpoints[name].append(coefs[k])
                         
     def plt_checkpoints(self, path='', split=False):
         """Plot saved checkpoints.
@@ -229,5 +229,4 @@ class TaylorAnalysis(nn.Module):
             plt.tick_params(axis='x', which='both', top=True, direction='in')
             plt.savefig(path+name, bbox_inches = "tight")
             plt.clf()
-
 
