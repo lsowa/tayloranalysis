@@ -206,12 +206,12 @@ class TaylorAnalysis(nn.Module):
         """
         if split:
             checkpoints = [self.first_order_checkpoints, self.second_order_checkpoints, self.third_order_checkpoints]
-            names = ['tc_training_first_order.pdf', 'tc_training_second_order.pdf', 'tc_training_third_order.pdf']
+            file_names = ['tc_training_first_order.pdf', 'tc_training_second_order.pdf', 'tc_training_third_order.pdf']
         else:
             checkpoints = [{**self.first_order_checkpoints, **self.second_order_checkpoints, **self.third_order_checkpoints}]
-            names = ['tc_training.pdf']
+            file_names = ['tc_training.pdf']
         
-        for dict, name in zip(checkpoints, names):
+        for dict, file_name in zip(checkpoints, file_names):
         # color setup
             NUM_COLORS = len(dict)
             cm = plt.get_cmap('gist_rainbow')
@@ -227,6 +227,6 @@ class TaylorAnalysis(nn.Module):
             plt.ylabel('$<t_i>$', loc='top', fontsize=13)
             plt.tick_params(axis='y', which='both', right=True, direction='in')
             plt.tick_params(axis='x', which='both', top=True, direction='in')
-            plt.savefig(path+name, bbox_inches = "tight")
+            plt.savefig(path+file_name, bbox_inches = "tight")
             plt.clf()
 
