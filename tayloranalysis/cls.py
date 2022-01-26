@@ -114,7 +114,7 @@ class TaylorAnalysis(nn.Module):
         gradients = grad(gradients[ind_j], x_data) 
         return self._mean(gradients[0])
 
-    def plot_tc(self, data, names, path='', order=2):
+    def plot_tc(self, data, names, path='', order=2, split=False):
         """Plot taylorcoefficients for current weights of the model.
 
         Args:
@@ -122,12 +122,20 @@ class TaylorAnalysis(nn.Module):
             names (list): List of feature names. Should have the same order as in the input tensor
             path (str): /path/to/save/plot.pdf
             order (int, optional): Order up to which the taylorcoefficients should be plotted. Defaults to 2.
+            split (bool, optional): Produce one plot for each derivation order.
         """
         # first order
         derivatives = self._first_order(data)
         for i in range(len(names)):
             plt.plot('$<t_{{{}}}>$'.format(names[i]), derivatives[i], 
                     '+', color='black', markersize=10)
+            if split:
+                plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+                plt.xticks(rotation=45)
+                plt.tick_params(axis='y', which='both', right=True, direction='in')
+                plt.tick_params(axis='x', which='both', top=True, direction='in')
+                plt.savefig(path+'coefficients_first_order.pdf', bbox_inches = "tight")
+                plt.clf()
 
         # second order
         if order >=2:
@@ -137,7 +145,13 @@ class TaylorAnalysis(nn.Module):
                     if i<=j: # ignore diagonal elements
                         plt.plot('$<t_{{{},{}}}$>'.format(names[i], names[j]), 
                                 derivatives[j], '+', color='black', markersize=10)
-                            
+                        if split:
+                            plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+                            plt.xticks(rotation=45)
+                            plt.tick_params(axis='y', which='both', right=True, direction='in')
+                            plt.tick_params(axis='x', which='both', top=True, direction='in')
+                            plt.savefig(path+'coefficients_second_order.pdf', bbox_inches = "tight")
+                            plt.clf()
         # third order
         if order >=3:
             for i in range(len(names)):
@@ -147,13 +161,21 @@ class TaylorAnalysis(nn.Module):
                         if i<=j<=k:  # ignore diagonal elements
                             plt.plot('$<t_{{{},{},{}}}>$'.format(names[i], names[j], names[k]), 
                                     derivatives[k], '+', color='black', markersize=10)
-
-        plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-        plt.xticks(rotation=45)
-        plt.tick_params(axis='y', which='both', right=True, direction='in')
-        plt.tick_params(axis='x', which='both', top=True, direction='in')
-        plt.savefig(path+'coefficients.pdf', bbox_inches = "tight")
-        plt.clf()
+                            if split:
+                                plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+                                plt.xticks(rotation=45)
+                                plt.tick_params(axis='y', which='both', right=True, direction='in')
+                                plt.tick_params(axis='x', which='both', top=True, direction='in')
+                                plt.savefig(path+'coefficients_third_order.pdf', bbox_inches = "tight")
+                                plt.clf()
+                            
+        if not split:
+            plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+            plt.xticks(rotation=45)
+            plt.tick_params(axis='y', which='both', right=True, direction='in')
+            plt.tick_params(axis='x', which='both', top=True, direction='in')
+            plt.savefig(path+'coefficients.pdf', bbox_inches = "tight")
+            plt.clf()
 
     def tc_checkpoint(self, x_data, names, order=2):
         """Compute and save taylorcoefficients to plot them later.
