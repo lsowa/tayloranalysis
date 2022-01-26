@@ -205,13 +205,13 @@ class TaylorAnalysis(nn.Module):
             path (str): /path/to/save/plot.pdf
         """
         if split:
-            checkpoints = [(self.first_order_checkpoints, 'tc_training_first_order.pdf'),
-                            (self.second_order_checkpoints, 'tc_training_second_order.pdf'),
-                            (self.third_order_checkpoints, 'tc_training_third_order.pdf')]
+            checkpoints = [self.first_order_checkpoints, self.second_order_checkpoints, self.third_order_checkpoints]
+            names = ['tc_training_first_order.pdf', 'tc_training_second_order.pdf', 'tc_training_third_order.pdf']
         else:
-            checkpoints = [({**self.first_order_checkpoints, **self.second_order_checkpoints, **self.third_order_checkpoints}, 'tc_training.pdf')]
+            checkpoints = [{**self.first_order_checkpoints, **self.second_order_checkpoints, **self.third_order_checkpoints}]
+            names = ['tc_training.pdf']
         
-        for dict, name in zip(checkpoints):
+        for dict, name in zip(checkpoints, names):
         # color setup
             NUM_COLORS = len(dict)
             cm = plt.get_cmap('gist_rainbow')
