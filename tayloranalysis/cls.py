@@ -213,14 +213,15 @@ class TaylorAnalysis(nn.Module):
         
         for dict, file_name in zip(checkpoints, file_names):
         # color setup
-            NUM_COLORS = len(dict)
-            cm = plt.get_cmap('gist_rainbow')
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+            #NUM_COLORS = len(dict)
+            #cm = plt.get_cmap('gist_rainbow')
+            #fig = plt.figure()
+            #ax = fig.add_subplot(111)
+            #ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+            plt.set_cmap('tab20')
             
             for name, coef in dict.items():
-                ax.plot(coef, label=name)
+                plt.plot(coef, label=name)
                 
             plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1))
             plt.xlabel('Epoch', loc='right', fontsize=13)
