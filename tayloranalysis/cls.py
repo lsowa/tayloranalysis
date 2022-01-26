@@ -21,7 +21,9 @@ class TaylorAnalysis(nn.Module):
         """
         super().__init__()
         self.model = model
-        self.checkpoints = {}
+        self.first_order_checkpoints = {}
+        self.second_order_checkpoints = {}
+        self.third_order_checkpoints = {}
 
     def forward(self, x):
         """Overwrite the model's forward function.
@@ -114,7 +116,7 @@ class TaylorAnalysis(nn.Module):
         gradients = grad(gradients[ind_j], x_data) 
         return self._mean(gradients[0])
 
-    def plot_tc(self, data, names, path='', order=2, split=False):
+    def plot_tc(self, data, names, path='', order=2):
         """Plot taylorcoefficients for current weights of the model.
 
         Args:
@@ -129,13 +131,6 @@ class TaylorAnalysis(nn.Module):
         for i in range(len(names)):
             plt.plot('$<t_{{{}}}>$'.format(names[i]), derivatives[i], 
                     '+', color='black', markersize=10)
-            if split:
-                plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-                plt.xticks(rotation=45)
-                plt.tick_params(axis='y', which='both', right=True, direction='in')
-                plt.tick_params(axis='x', which='both', top=True, direction='in')
-                plt.savefig(path+'coefficients_first_order.pdf', bbox_inches = "tight")
-                plt.clf()
 
         # second order
         if order >=2:
@@ -145,13 +140,7 @@ class TaylorAnalysis(nn.Module):
                     if i<=j: # ignore diagonal elements
                         plt.plot('$<t_{{{},{}}}$>'.format(names[i], names[j]), 
                                 derivatives[j], '+', color='black', markersize=10)
-                        if split:
-                            plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-                            plt.xticks(rotation=45)
-                            plt.tick_params(axis='y', which='both', right=True, direction='in')
-                            plt.tick_params(axis='x', which='both', top=True, direction='in')
-                            plt.savefig(path+'coefficients_second_order.pdf', bbox_inches = "tight")
-                            plt.clf()
+
         # third order
         if order >=3:
             for i in range(len(names)):
@@ -160,22 +149,14 @@ class TaylorAnalysis(nn.Module):
                     for k in range(len(names)):
                         if i<=j<=k:  # ignore diagonal elements
                             plt.plot('$<t_{{{},{},{}}}>$'.format(names[i], names[j], names[k]), 
-                                    derivatives[k], '+', color='black', markersize=10)
-                            if split:
-                                plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-                                plt.xticks(rotation=45)
-                                plt.tick_params(axis='y', which='both', right=True, direction='in')
-                                plt.tick_params(axis='x', which='both', top=True, direction='in')
-                                plt.savefig(path+'coefficients_third_order.pdf', bbox_inches = "tight")
-                                plt.clf()
-                            
-        if not split:
-            plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-            plt.xticks(rotation=45)
-            plt.tick_params(axis='y', which='both', right=True, direction='in')
-            plt.tick_params(axis='x', which='both', top=True, direction='in')
-            plt.savefig(path+'coefficients.pdf', bbox_inches = "tight")
-            plt.clf()
+                                    derivatives[k], '+', color='black', markersize=10)                            
+
+        plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+        plt.xticks(rotation=45)
+        plt.tick_params(axis='y', which='both', right=True, direction='in')
+        plt.tick_params(axis='x', which='both', top=True, direction='in')
+        plt.savefig(path+'coefficients.pdf', bbox_inches = "tight")
+        plt.clf()
 
     def tc_checkpoint(self, x_data, names, order=2):
         """Compute and save taylorcoefficients to plot them later.
@@ -190,9 +171,9 @@ class TaylorAnalysis(nn.Module):
             coefs= self._first_order(x_data)
             for i, name in enumerate(names):
                 name = '$<t_{{{}}}>$'.format(name)
-                if name not in self.checkpoints.keys(): 
-                    self.checkpoints[name] = []
-                self.checkpoints[name].append(coefs[i])
+                if name not in self.first_order_checkpoints.keys(): 
+                    self.first_order_checkpoints[name] = []
+                self.first_order_checkpoints[name].append(coefs[i])
 
         # second order
         if order >= 2:
@@ -201,9 +182,9 @@ class TaylorAnalysis(nn.Module):
                 for j, name_j in enumerate(names):
                     if i<=j: # ignore diagonal elements
                         name = '$<t_{{{},{}}}>$'.format(name_i, name_j)
-                        if name not in self.checkpoints.keys(): 
-                            self.checkpoints[name] = []
-                        self.checkpoints[name].append(coefs[j])
+                        if name not in self.second_order_checkpoints.keys(): 
+                            self.second_order_checkpoints[name] = []
+                        self.second_order_checkpoints[name].append(coefs[j])
 
         # third order
         if order >= 3:
@@ -213,37 +194,40 @@ class TaylorAnalysis(nn.Module):
                     for k, name_k in enumerate(names):
                         if i<=j<=k:  # ignore diagonal elements
                             name = '$<t_{{{},{},{}}}>$'.format(name_i, name_j, name_k)
-                            if name not in self.checkpoints.keys(): 
-                                self.checkpoints[name] = []
-                            self.checkpoints[name].append(coefs[k])
+                            if name not in self.third__order_checkpoints.keys(): 
+                                self.third__order_checkpoints[name] = []
+                            self.third__order_checkpoints[name].append(coefs[k])
                         
-    def plt_checkpoints(self, path=''):
+    def plt_checkpoints(self, path='', split=False):
         """Plot saved checkpoints.
 
         Args:
             path (str): /path/to/save/plot.pdf
         """
+        if split:
+            checkpoints = [(self.first_order_checkpoints, 'tc_training_first_order.pdf'),
+                            (self.second_order_checkpoints, 'tc_training_second_order.pdf'),
+                            (self.third_order_checkpoints, 'tc_training_third_order.pdf')]
+        else:
+            checkpoints = [({**self.first_order_checkpoints, **self.second_order_checkpoints, **self.third_order_checkpoints}, 'tc_training.pdf')]
+        
+        for dict, name in zip(checkpoints):
         # color setup
-        NUM_COLORS = len(self.checkpoints)
-        cm = plt.get_cmap('gist_rainbow')
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
-        
-        for name, coef in self.checkpoints.items():
-            ax.plot(coef, label=name)
+            NUM_COLORS = len(dict)
+            cm = plt.get_cmap('gist_rainbow')
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
             
-        plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1))
-        plt.xlabel('Epoch', loc='right', fontsize=13)
-        plt.ylabel('$<t_i>$', loc='top', fontsize=13)
-        plt.tick_params(axis='y', which='both', right=True, direction='in')
-        plt.tick_params(axis='x', which='both', top=True, direction='in')
-        plt.savefig(path+'tc_training.pdf', bbox_inches = "tight")
-        plt.clf()
-        
-    def clear_checkpoints(self):
-        """clear saved checkpoints
-        """
-        self.checkpoints = {}
+            for name, coef in dict.items():
+                ax.plot(coef, label=name)
+                
+            plt.legend(loc='upper left', bbox_to_anchor=(1.04, 1))
+            plt.xlabel('Epoch', loc='right', fontsize=13)
+            plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+            plt.tick_params(axis='y', which='both', right=True, direction='in')
+            plt.tick_params(axis='x', which='both', top=True, direction='in')
+            plt.savefig(path+name, bbox_inches = "tight")
+            plt.clf()
 
 
