@@ -126,7 +126,10 @@ class TaylorAnalysis(nn.Module):
         gradients /= 6.
         # factor for all terms that occur three times (e.g. d/dx1x2x2 and d/dx2x1x2 and d/dx2x2x1)
         factor_bool = np.array(range(gradients.shape[1]))
-        factor_bool = (factor_bool == ind_j) + (factor_bool == ind_i) + (ind_j==ind_i)
+        # check for derivatives with same variables
+        factor_bool = np.array(factor_bool == ind_j, dtype=int) + np.array(factor_bool == ind_i, dtype=int) + np.array([ind_j==ind_i]*factor_bool.shape[0], dtype=int)
+        factor_bool = factor_bool == 1 # if variable pair is identical ..
+        #print(factor_bool)
         gradients[:,factor_bool] *= 3.
         return self._mean(gradients)
 
