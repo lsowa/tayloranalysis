@@ -91,9 +91,9 @@ class TaylorAnalysis(nn.Module):
         # factor for all second order taylor terms
         gradients /= 2.
         # factor for terms who occure two times in the second order (e.g. d/dx1x2 and d/dx2x1)
-        factor_bool = np.ones_like(gradients.cpu().detach().numpy(), dtype=bool)
-        factor_bool[ind_i] = False
-        gradients[factor_bool] *= 2 
+        factor_bool = range(len(gradients.cpu().detach().numpy()))
+        factor_bool = (factor_bool != ind_i)
+        gradients[factor_bool] *= 2.
         return self._mean(gradients)
 
     def _third_order(self, x_data, ind_i, ind_j):
@@ -123,11 +123,11 @@ class TaylorAnalysis(nn.Module):
         gradients = grad(gradients[ind_j], x_data) 
         gradients = gradients[0]
         # factor for all third order taylor terms
-        gradients /= 6
+        gradients /= 6.
         # factor for all terms that occur three times (e.g. d/dx1x2x2 and d/dx2x1x2 and d/dx2x2x1)
         factor_bool = range(len(gradients.cpu().detach().numpy()))
         factor_bool = (factor_bool == ind_j) + (factor_bool == ind_i) + (ind_j==ind_i)
-        gradients[factor_bool] *= 3
+        gradients[factor_bool] *= 3.
         return self._mean(gradients)
 
     def plot_tc(self, data, names, path='', order=2):
