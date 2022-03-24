@@ -1,3 +1,4 @@
+from turtle import color
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -36,7 +37,7 @@ class TaylorAnalysis(nn.Module):
         """
         return self.model(x)
 
-    def _mean(self, data):
+    def _mean(self, data, raw=False):
         """Compute abs and mean of taylorcoefficients.
 
         Args:
@@ -45,11 +46,21 @@ class TaylorAnalysis(nn.Module):
         Returns:
             numpy.array: Array means of taylorcoefficients.
         """
-        data = torch.abs(data)
-        data = torch.mean(data, dim=0)
-        return data.cpu().detach().numpy()
+        #data = torch.abs(data)
+        if raw:
+            return data
+        elif data.shape[0] > 1:
+            mean = torch.mean(data, dim=0)
+            down = torch.abs(mean - torch.quantile(data, q=0.05, dim=0))
+            up = torch.abs(torch.quantile(data, q=0.95, dim=0) - mean)
+            return mean.cpu().detach().numpy(), down.cpu().detach().numpy(), up.cpu().detach().numpy()
+        elif data.shape[0] == 1:
+            return data[0].cpu().detach().numpy()
+        else:
+            hjdjdlk
     
-    def _first_order(self, x_data):
+    def _first_order(self, x_data, raw=False):
+        
         """Compute first order taylorcoefficients.
 
         Args:
@@ -65,9 +76,9 @@ class TaylorAnalysis(nn.Module):
         pred = pred.sum()
         # first order grads
         gradients = grad(pred, x_data) 
-        return self._mean(gradients[0])
+        return self._mean(gradients[0], raw=raw)
 
-    def _second_order(self, x_data, ind_i):
+    def _second_order(self, x_data, ind_i, raw=False):
         """Compute second order taylorcoefficients. The model is first derivated according to the ind_i-th feature and second to all others. 
 
         Args:
@@ -94,7 +105,7 @@ class TaylorAnalysis(nn.Module):
         factor_bool = np.array(range(gradients.shape[1]))
         factor_bool = (factor_bool != ind_i)
         gradients[:,factor_bool] *= 2.
-        return self._mean(gradients)
+        return self._mean(gradients, raw=raw)
 
     def _third_order(self, x_data, ind_i, ind_j):
         """Compute third order taylorcoefficients. The model is derivated to the ind_i-th feature, 
@@ -248,3 +259,76 @@ class TaylorAnalysis(nn.Module):
             plt.savefig(path+file_name, bbox_inches = "tight")
             plt.clf()
 
+
+
+    def ood_test(self, x_data, y_data, x, names, path='', order=2):
+        
+        datas = [x_data[y_data==0], x_data[y_data==1]]
+        labels = ['Background', 'Signal']
+        colors = ['lightskyblue', 'lightcoral']
+        
+        for data, label, color in zip(datas, labels, colors):
+            # first order
+            mean, down, up = self._first_order(data)
+            for i in range(len(names)):
+                plt.errorbar(['$<t_{{{}}}>$'.format(names[i])], mean[i], [[down[i]], [up[i]]], 
+                                            color=color, fmt='o', capsize=12)
+                
+            # second order
+            if order >=2:
+                for i in range(len(names)):
+                    mean, down, up = self._second_order(data, i)
+                    for j in range(len(names)):
+                        if i<=j: # ignore diagonal elements
+
+                            plt.errorbar(['$<t_{{{},{}}}$>'.format(names[i], names[j])],
+                                            mean[j], [[down[j]], [up[j]]], 
+                                            color=color, fmt='o', capsize=12)
+
+
+            # third order
+            if order >=3:
+                for i in range(len(names)):
+                    for j in range(len(names)):
+                        mean, down, up = self._third_order(data, i, j)
+                        for k in range(len(names)):
+                            if i<=j<=k:  # ignore diagonal elements
+                                plt.errorbar(['$<t_{{{},{},{}}}>$'.format(names[i], names[j], names[k])], 
+                                            mean[k], [[down[k]], [up[k]]], 
+                                            color=color, fmt='o', capsize=12)                       
+
+            plt.plot([], [], 'o', color=color, label=label)
+
+        # Evaluate Datapoint
+        # first order
+        data = self._first_order(x)
+        for i in range(len(names)):
+            plt.plot(['$<t_{{{}}}>$'.format(names[i])], data[i], '+', color='black')
+            
+        # second order
+        if order >=2:
+            for i in range(len(names)):
+                data = self._second_order(x, i)
+                for j in range(len(names)):
+                    if i<=j: # ignore diagonal elements
+                        print(data[j])
+                        plt.plot(['$<t_{{{},{}}}$>'.format(names[i], names[j])], data[j], '+', color='black')
+
+        # third order
+        if order >=3:
+            for i in range(len(names)):
+                for j in range(len(names)):
+                    data = self._third_order(x, i, j)
+                    for k in range(len(names)):
+                        if i<=j<=k:  # ignore diagonal elements
+                            print(data[k])
+                            plt.plot(['$<t_{{{},{},{}}}>$'.format(names[i], names[j], names[k])], data[k], '+', color='black')
+        plt.plot([], [], 'o', color='black', label='Datapoint')
+
+        plt.ylabel('$<t_i>$', loc='top', fontsize=13)
+        plt.legend()
+        plt.xticks(rotation=45)
+        plt.tick_params(axis='y', which='both', right=True, direction='in')
+        plt.tick_params(axis='x', which='both', top=True, direction='in')
+        plt.savefig(path+'coefficients.pdf', bbox_inches = "tight")
+        plt.clf()
