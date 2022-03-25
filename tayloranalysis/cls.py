@@ -21,20 +21,23 @@ class TaylorAnalysis(nn.Module):
         """
         super().__init__()
         self.model = model
+        #self.__setattr__(self, 'model', model)
         self.first_order_checkpoints = {}
         self.second_order_checkpoints = {}
         self.third_order_checkpoints = {}
 
+#    def __getattr__(self, name: str):
+#        return self.model.__getattribute__(name)
+
     def forward(self, x):
         """Overwrite the model's forward function.
-
         Args:
-            x (torch.tensor): input tensor of shape (batch, features)
+            x (torch.tensor): input tensor of shape (batch, features)##
 
         Returns:
             torch.tensor: model output of shape (batch)
         """
-        return self.model(x)
+        return self.model.forward(x)
 
     def _mean(self, data):
         """Compute abs and mean of taylorcoefficients.
@@ -91,9 +94,9 @@ class TaylorAnalysis(nn.Module):
         # factor for all second order taylor terms
         gradients /= 2.
         # factor for terms who occure two times in the second order (e.g. d/dx1x2 and d/dx2x1)
-        factor_bool = np.array(range(gradients.shape[1]))
-        factor_bool = (factor_bool != ind_i)
-        gradients[:,factor_bool] *= 2.
+        masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
+        masked_factor = (masked_factor != ind_i) + 1 
+        gradients *= masked_factor
         return self._mean(gradients)
 
     def _third_order(self, x_data, ind_i, ind_j):
@@ -125,12 +128,12 @@ class TaylorAnalysis(nn.Module):
         # factor for all third order taylor terms
         gradients /= 6.
         # factor for all terms that occur three times (e.g. d/dx1x2x2 and d/dx2x1x2 and d/dx2x2x1)
-        factor_bool = np.array(range(gradients.shape[1]))
+        masked_factor = np.array(range(gradients.shape[1]))
         # check for derivatives with same variables
-        factor_bool = np.array(factor_bool == ind_j, dtype=int) + np.array(factor_bool == ind_i, dtype=int) + np.array([ind_j==ind_i]*factor_bool.shape[0], dtype=int)
-        factor_bool = factor_bool == 1 # if variable pair is identical ..
+        masked_factor = torch.tensor(masked_factor == ind_j, dtype=int) + torch.tensor(masked_factor == ind_i, dtype=int) + torch.tensor([ind_j==ind_i]*masked_factor.shape[0], dtype=int)
+        masked_factor = (masked_factor == 1) * 2 + 1 # if variable pair is identical ..
         #print(factor_bool)
-        gradients[:,factor_bool] *= 3.
+        gradients *= masked_factor.to(gradients.device)
         return self._mean(gradients)
 
     def plot_tc(self, data, names, path='', order=2):
@@ -247,4 +250,11 @@ class TaylorAnalysis(nn.Module):
             plt.tick_params(axis='x', which='both', top=True, direction='in')
             plt.savefig(path+file_name, bbox_inches = "tight")
             plt.clf()
+
+
+
+
+## Tests
+
+
 

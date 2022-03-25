@@ -2,3 +2,4 @@
 __pycache__/
 workspace.code-workspace
 .nfs*
+example.py
