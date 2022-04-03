@@ -383,5 +383,7 @@ class TaylorAnalysis(object):
         """
         return self.model.__call__(*args, **kwargs)
 
+    def __str__(self):
+        return self.model.__str__()
 
 ## Tests
