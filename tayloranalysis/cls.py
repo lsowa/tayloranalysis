@@ -199,7 +199,8 @@ class TaylorAnalysis(object):
 
         for item in derivatives_for_calculation:
             nplet = _nplet(*item)
-            if any(mask := _mask(nplet)):
+            mask = _mask(nplet)
+            if any(mask):
                 dataframe.loc[epoch, np.array(nplet)[mask]] = self._orders[len(item) + 1](x_data, *item)[variable_mask][mask]
 
     def tc_checkpoint(self, x_data, epoch):
