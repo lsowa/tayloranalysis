@@ -22,21 +22,46 @@ pip install git+https://gitlab.etp.kit.edu/lsowa/tayloranalysis.git
 
 Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. 
 ```
+...
 from tayloranalysis import TaylorAnalysis
 ...
+
 model = Mlp()
 model = TaylorAnalysis(model)
+
+model.setup_tc_checkpoints(
+    number_of_variables_in_data=2,  # dimension of your model input
+    considered_variables_idx=[0, 1],  # variables to be tracked
+    variable_names=["x_1", "x_2"],  # their representative name (plotting)
+    derivation_order=3,  # calculates derivation up to 3, including 3
+)
+
 ...
-for epoch in epochs:
+
+for epoch in range(200):
     ...
-    # save taylorcoefficients during training
-    model.tc_checkpoint(x_train, names=['x1', 'x2'], order=3)
-    
-# plot taylorcoefficients after training
-model.plot_tc(data=x_test, names=['x1', 'x2'], path='', order=3)
+
+    # save current taylorcoefficients
+    model.tc_checkpoint(x_train, epoch=epoch)
+
+...
 
 # plot saved checkpoints
-model.plt_checkpoints(path='')
+model.plot_checkpoints(path="./tc_training.pdf")
+
+
+# plot taylorcoefficients after training
+# options similar to setup_tc_checkpoints
+model.plot_taylor_coefficients(
+    x_test,
+    considered_variables_idx=[0, 1],  
+    variable_names=["x_1", "x_2"],
+    derivation_order=3,
+    path="./coefficients.pdf",
+)
+
+
+
 ```
 Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
 
