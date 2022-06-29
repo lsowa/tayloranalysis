@@ -20,7 +20,7 @@ pip install git+https://gitlab.etp.kit.edu/lsowa/tayloranalysis.git
 
 ## Usage
 
-Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. 
+Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. A full example is shown [here](example/example.py). 
 ```
 ...
 from tayloranalysis import TaylorAnalysis
