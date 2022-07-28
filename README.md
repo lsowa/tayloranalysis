@@ -30,10 +30,12 @@ model = Mlp()
 model = TaylorAnalysis(model)
 
 model.setup_tc_checkpoints(
-    number_of_variables_in_data=2,  # dimension of your model input
+    number_of_variables_in_data=2,    # dimension of your model input
     considered_variables_idx=[0, 1],  # variables to be tracked
-    variable_names=["x_1", "x_2"],  # their representative name (plotting)
-    derivation_order=3,  # calculates derivation up to 3, including 3
+    variable_names=["x_1", "x_2"],    # their representative name (plotting)
+    derivation_order=3,               # calculates derivation up to 3, including 3
+    eval_nodes='all',                 # compute TCs based on specified output node(s)
+    eval_only_max_node=False          # compute TCs based on the output node with the highest value only?
 )
 
 ...
@@ -42,7 +44,7 @@ for epoch in range(200):
     ...
 
     # save current taylorcoefficients
-    model.tc_checkpoint(x_train, epoch=epoch)
+    model.tc_checkpoint(x_train, epoch=epoch) # x_train shape is as usual: (batch, features)
 
 ...
 

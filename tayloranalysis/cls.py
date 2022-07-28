@@ -64,6 +64,14 @@ class TaylorAnalysis(object):
         self.model.zero_grad()
         x_data.grad = None
         pred = self.model(x_data)
+        # keep only selcted output nodes
+        if type(self.eval_nodes) == int or type(self.eval_nodes) == list:
+            pred = torch.index_select(pred, 1, torch.tensor(self.eval_nodes, device=pred.device))
+        # keep only the output node with the highest value
+        if self.eval_max_only:
+            pred_view = pred.view(-1, pred.shape[-1])
+            pred_cat = (pred_view == pred_view.max(dim=1, keepdim=True)[0]).view_as(pred).to(torch.float64)
+            pred = pred * pred_cat
         pred = pred.sum()
         # first order grads
         gradients = grad(pred, x_data)
@@ -83,6 +91,14 @@ class TaylorAnalysis(object):
         self.model.zero_grad()
         x_data.grad = None
         pred = self.model(x_data)
+        # keep only selcted output nodes
+        if type(self.eval_nodes) == int or type(self.eval_nodes) == list:
+            pred = torch.index_select(pred, 1, torch.tensor(self.eval_nodes, device=pred.device))
+        # keep only the output node with the highest value
+        if self.eval_max_only:
+            pred_view = pred.view(-1, pred.shape[-1])
+            pred_cat = (pred_view == pred_view.max(dim=1, keepdim=True)[0]).view_as(pred).to(torch.float64)
+            pred = pred * pred_cat
         pred = pred.sum()
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -114,6 +130,14 @@ class TaylorAnalysis(object):
         self.model.zero_grad()
         x_data.grad = None
         pred = self.model(x_data)
+        # keep only selcted output nodes
+        if type(self.eval_nodes) == int or type(self.eval_nodes) == list:
+            pred = torch.index_select(pred, 1, torch.tensor(self.eval_nodes, device=pred.device))
+        # keep only the output node with the highest value
+        if self.eval_max_only:
+            pred_view = pred.view(-1, pred.shape[-1])
+            pred_cat = (pred_view == pred_view.max(dim=1, keepdim=True)[0]).view_as(pred).to(torch.float64)
+            pred = pred * pred_cat
         pred = pred.sum()
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -229,6 +253,8 @@ class TaylorAnalysis(object):
         considered_variables_idx=None,
         variable_names=None,
         derivation_order=2,
+        eval_nodes='all',
+        eval_only_max_node=False,
     ):
         """
         Method for setting all important parameters for calculating the checkpoints during training
@@ -241,6 +267,12 @@ class TaylorAnalysis(object):
             variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
+            eval_nodes (int or list): Compute Taylor Coefficients only based on the specified output node(s).
+                                        If eval_nodes is set to a non integer or list value, all output nodes
+                                        will be taken into account.
+            eval_only_max_node (bool): Compute Taylor Coefficients only based on the output node with 
+                                        the highest value. This step is done based on the output nodes 
+                                        selected with 'eval_nodes'.
         Returns:
             None
         """
@@ -249,6 +281,8 @@ class TaylorAnalysis(object):
         self.variable_idx = considered_variables_idx or list(range(number_of_variables_in_data))
         self.variable_names = variable_names or [f"x_{i}" for i in range(number_of_variables_in_data)]
         self.variable_mask = np.array(self.variable_idx)
+        self.eval_nodes = eval_nodes
+        self.eval_max_only = eval_only_max_node
 
         self.derivatives_for_calculation = self._get_derivatives(
             "calculation",
