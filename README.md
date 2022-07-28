@@ -1,7 +1,7 @@
 # Taylorcoefficient Analysis
-this is a pytorch implementation of the Paper 
+This is a pytorch implementation of the Paper 
 ["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782) 
-(S. Wunsch, R. Friese, R. Wolf, G. Quast)
+(S. Wunsch, R. Friese, R. Wolf, G. Quast).
 
 As explained in the paper, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">. 
 
