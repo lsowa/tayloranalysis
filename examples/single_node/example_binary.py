@@ -3,16 +3,17 @@ import time
 
 import torch
 from torch import nn
+import sys
 
 from tayloranalysis import TaylorAnalysis
 
 # load data
 
-data = pickle.load(open("../../data/multivariate/multiclass_data.pickle", "rb"), encoding="latin-1")
+data = pickle.load(open("../../data/binary/data.pickle", "rb"), encoding="latin-1")
 x_train = torch.tensor(data["x_train"], dtype=torch.float)
-y_train = torch.tensor(data["y_train"], dtype=torch.long).t()
+y_train = torch.tensor(data["y_train"], dtype=torch.float)
 
-# initialize normal pytorch MLP model
+# initialize nomral pytorch model
 
 
 class Mlp(nn.Module):
@@ -38,18 +39,16 @@ class Mlp(nn.Module):
         return x
 
 
-model = Mlp(2, 100, 3, 2)
+model = Mlp(2, 100, 1, 2)
 
-# wrap model with TaylorAnalysis
+# wrap model
 
 model = TaylorAnalysis(model)
 
-# setup for normal training
-
 optim = torch.optim.Adam(model.parameters(), lr=0.001)
-crit = nn.CrossEntropyLoss()
+crit = nn.BCELoss()
 
-device = torch.device(1)  # choose your device you want to train on
+device = torch.device(3)
 x_train = x_train.to(device)
 y_train = y_train.to(device)
 model.to(device)
@@ -63,12 +62,10 @@ model.setup_tc_checkpoints(
     considered_variables_idx=[0, 1],
     variable_names=["x_1", "x_2"],
     derivation_order=3,
-    eval_nodes=[0, 1, (0, 1), "all"],  # single int or 'all' is also possible
-    eval_only_max_node=True,
 )
 
 start = time.time()
-for epoch in range(150):
+for epoch in range(200):
     optim.zero_grad()
     pred = model(x_train)
     loss = crit(pred, y_train)
@@ -94,8 +91,6 @@ model.plot_taylor_coefficients(
     variable_names=["x_1", "x_2"],
     derivation_order=3,
     path=["./coefficients.pdf", "./coefficients.png"],
-    eval_nodes=[0, 1, (0, 1), "all"],  # single int or 'all' is also possible
-    eval_only_max_node=False,
 )
 
 # plot saved checkpoints
