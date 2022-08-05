@@ -430,6 +430,7 @@ class TaylorAnalysis(object):
             ax.set_xticks(list(range(idx + 1)))
             ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
             ax.grid(axis="x", alpha=0.25)
+            plt.tight_layout()
             prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
 
             save_item(fig, path, prefix=prefix)
