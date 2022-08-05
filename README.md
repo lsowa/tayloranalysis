@@ -1,9 +1,9 @@
 # Taylorcoefficient Analysis
-This is a pytorch implementation of the Paper 
-["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782) 
+This is a pytorch implementation of the Paper
+["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782)
 (S. Wunsch, R. Friese, R. Wolf, G. Quast).
 
-As explained in the paper, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">. 
+As explained in the paper, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">.
 
 This is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
 
@@ -20,7 +20,7 @@ pip install git+https://gitlab.etp.kit.edu/lsowa/tayloranalysis.git
 
 ## Usage
 
-Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. A full example is shown [here](example/example.py). 
+Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. A full example is shown [here](example/example.py).
 ```
 ...
 from tayloranalysis import TaylorAnalysis
@@ -34,8 +34,9 @@ model.setup_tc_checkpoints(
     considered_variables_idx=[0, 1],  # variables to be tracked
     variable_names=["x_1", "x_2"],    # their representative name (plotting)
     derivation_order=3,               # calculates derivation up to 3, including 3
-    eval_nodes='all',                 # compute TCs based on specified output node(s)
-    eval_only_max_node=False          # compute TCs based on the output node with the highest value only?
+    # In case of multiclassification: granular selection is possible
+    eval_nodes=[0, 1, (0,1), "all"],  # compute TCs based on specified output node(s)
+    eval_only_max_node=True,          # compute TCs based on the output node with the highest value only?
 )
 
 ...
@@ -56,10 +57,13 @@ model.plot_checkpoints(path="./tc_training.pdf")
 # options similar to setup_tc_checkpoints
 model.plot_taylor_coefficients(
     x_test,
-    considered_variables_idx=[0, 1],  
+    considered_variables_idx=[0, 1],
     variable_names=["x_1", "x_2"],
     derivation_order=3,
     path="./coefficients.pdf",
+    # In case of multiclassification: granular selection is possible
+    eval_nodes=[0, 1, (0,1), "all"],
+    eval_only_max_node=False,
 )
 
 
@@ -72,4 +76,3 @@ Note that your data should be of shape (batch, features). `names` should be a li
 ![Plottet Taylorcoefficients after Training](examples/single_node/coefficients.png "test")
 
 ![Plotted Checkpoints](examples/single_node/tc_training.png)
-
