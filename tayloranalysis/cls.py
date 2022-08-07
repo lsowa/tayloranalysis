@@ -165,9 +165,11 @@ class TaylorAnalysis(object):
         masked_factor = np.array(range(gradients.shape[1]))
 
         # check for derivatives with same variables
-        masked_factor = torch.tensor(masked_factor == ind_j, dtype=int) \
-            + torch.tensor(masked_factor == ind_i, dtype=int) \
+        masked_factor = (
+            torch.tensor(masked_factor == ind_j, dtype=int)
+            + torch.tensor(masked_factor == ind_i, dtype=int)
             + torch.tensor([ind_j == ind_i] * masked_factor.shape[0], dtype=int)
+        )
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
@@ -366,6 +368,7 @@ class TaylorAnalysis(object):
         derivation_order=2,
         eval_nodes="all",
         eval_only_max_node=False,
+        sorted=True,
         path="./coefficients.pdf",
     ):
         """
@@ -379,6 +382,7 @@ class TaylorAnalysis(object):
             variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
+            sorted (bool): Sort the computed Taylor coefficients based on their numerical value.
             path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
         """
 
@@ -426,11 +430,31 @@ class TaylorAnalysis(object):
             del self.eval_max_only
 
         for node, _dataframe in _checkpoints.items():
+            _stacked_dataframe = pd.DataFrame()
+
+            _stacked_dataframe["TC Index"] = _dataframe.columns
+            _stacked_dataframe["TC Variables"] = [tuple(np.array(variable_names)[np.array(idx)]) for idx in _dataframe.columns]
+            _stacked_dataframe["TC Value"] = _dataframe.values[0]
+
+            if sorted:
+                _stacked_dataframe.sort_values(by="TC Value", ascending=False, inplace=True)
+
+            prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+
+            _csv_path = path if isinstance(path, str) else path[0]
+            _csv_path = f"{os.path.splitext(_csv_path)[0]}.csv"
+
+            save_item(_stacked_dataframe, _csv_path, prefix=prefix)
+
+        for node, _dataframe in _checkpoints.items():
             fig, ax = plt.subplots(1, 1, figsize=(10, 7))
             xlabels = []
 
+            if sorted:
+                _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True)
+
             for idx, column in enumerate(_dataframe.columns):
-                _label = ",".join(np.array(self.variable_names)[np.array(column)])
+                _label = ",".join(np.array(variable_names)[np.array(column)])
                 xlabels.append(f"$<t_{{{_label}}}>$")
                 ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
 
