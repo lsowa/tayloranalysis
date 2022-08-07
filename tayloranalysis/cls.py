@@ -404,7 +404,11 @@ class TaylorAnalysis(object):
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
 
-        self._eval_max_only, self.eval_max_only = self.eval_max_only, eval_only_max_node  # copy
+        try:
+            self._eval_max_only, self.eval_max_only = self.eval_max_only, eval_only_max_node  # copy
+        except AttributeError:  # if not set before
+            self.eval_max_only = eval_only_max_node
+
         for node, _dataframe in _checkpoints.items():
             self._tc_checkpoint(
                 x_data=x_data,
@@ -415,7 +419,11 @@ class TaylorAnalysis(object):
                 derivatives_for_calculation=_derivatives_calculation,
                 node=node,
             )
-        self.eval_max_only = self._eval_max_only  # put it back
+
+        try:
+            self.eval_max_only = self._eval_max_only  # put it back
+        except AttributeError:  # derefernce it if it was not was set previously
+            del self.eval_max_only
 
         for node, _dataframe in _checkpoints.items():
             fig, ax = plt.subplots(1, 1, figsize=(10, 7))
@@ -430,6 +438,7 @@ class TaylorAnalysis(object):
             ax.set_xticks(list(range(idx + 1)))
             ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
             ax.grid(axis="x", alpha=0.25)
+            plt.tight_layout()
             prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
 
             save_item(fig, path, prefix=prefix)
