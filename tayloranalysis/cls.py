@@ -14,11 +14,16 @@ lw, markeredgewidth = 3, 3
 
 
 # helper function for saving items
-def save_item(item, path, prefix=None):
+def save_item(item, path, prefix=None, postfix=None):
     if not isinstance(path, list):
-        if prefix:
-            _dir, _name = os.path.split(path)
-            path = os.path.join(_dir, f"{prefix}_{_name}")
+        if prefix or postfix:
+            directory, filename = os.path.split(path)
+            if prefix:
+                filename = f"{prefix}_{filename}"
+            if postfix:
+                basename, extension = os.path.splitext(filename)
+                filename = f"{basename}_{postfix}{extension}"
+            path = os.path.join(directory, filename)
         if isinstance(item, matplotlib.figure.Figure):
             item.savefig(path, bbox_inches="tight")
         elif isinstance(item, dict):
@@ -27,7 +32,7 @@ def save_item(item, path, prefix=None):
             item.to_csv(path)
     if isinstance(path, list):
         for p in path:
-            save_item(item=item, path=p, prefix=prefix)
+            save_item(item=item, path=p, prefix=prefix, postfix=postfix)
 
 
 class TaylorAnalysis(object):
@@ -369,6 +374,7 @@ class TaylorAnalysis(object):
         eval_nodes="all",
         eval_only_max_node=False,
         sorted=True,
+        number_of_tc_per_plot=20,
         path="./coefficients.pdf",
     ):
         """
@@ -383,6 +389,9 @@ class TaylorAnalysis(object):
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
             sorted (bool): Sort the computed Taylor coefficients based on their numerical value.
+            number_of_tc_per_plot (int): number of drawn taylor coefficients inside one plot. If the number of
+                                         taylor coefficients is greater than number_of_tc_per_plot multiple
+                                         plots are created.
             path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
         """
 
@@ -447,26 +456,30 @@ class TaylorAnalysis(object):
             save_item(_stacked_dataframe, _csv_path, prefix=prefix)
 
         for node, _dataframe in _checkpoints.items():
-            fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-            xlabels = []
 
             if sorted:
                 _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True)
 
-            for idx, column in enumerate(_dataframe.columns):
-                _label = ",".join(np.array(variable_names)[np.array(column)])
-                xlabels.append(f"$<t_{{{_label}}}>$")
-                ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
+            m, n = _dataframe.shape[1], number_of_tc_per_plot
+            splits = [np.arange(m)[i:i + n] for i in range(0, m, n)]
+            for split_idx, split in enumerate(splits):
+                fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+                xlabels = []
+                for idx, column in enumerate(_dataframe.columns[split]):
+                    _label = ",".join(np.array(variable_names)[np.array(column)])
+                    xlabels.append(f"$<t_{{{_label}}}>$")
+                    ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
 
-            ax.set_ylabel("$<t_i>$", loc="top")
-            ax.set_xticks(list(range(idx + 1)))
-            ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
-            ax.grid(axis="x", alpha=0.25)
-            plt.tight_layout()
-            prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+                ax.set_ylabel("$<t_i>$", loc="top")
+                ax.set_xticks(list(range(idx + 1)))
+                ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
+                ax.grid(axis="x", alpha=0.25)
 
-            save_item(fig, path, prefix=prefix)
-            plt.close("all")
+                plt.tight_layout()
+                prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+                postfix = f"{split_idx}" if len(splits) > 1 else None
+                save_item(fig, path, prefix=prefix, postfix=postfix)
+                plt.close("all")
 
     def save_checkpoints(self, path="./tc_checkpoints.csv"):
         """
