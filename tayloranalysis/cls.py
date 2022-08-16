@@ -14,11 +14,16 @@ lw, markeredgewidth = 3, 3
 
 
 # helper function for saving items
-def save_item(item, path, prefix=None):
+def save_item(item, path, prefix=None, postfix=None):
     if not isinstance(path, list):
-        if prefix:
-            _dir, _name = os.path.split(path)
-            path = os.path.join(_dir, f"{prefix}_{_name}")
+        if prefix or postfix:
+            directory, filename = os.path.split(path)
+            if prefix:
+                filename = f"{prefix}_{filename}"
+            if postfix:
+                basename, extension = os.path.splitext(filename)
+                filename = f"{basename}_{postfix}{extension}"
+            path = os.path.join(directory, filename)
         if isinstance(item, matplotlib.figure.Figure):
             item.savefig(path, bbox_inches="tight")
         elif isinstance(item, dict):
@@ -27,7 +32,7 @@ def save_item(item, path, prefix=None):
             item.to_csv(path)
     if isinstance(path, list):
         for p in path:
-            save_item(item=item, path=p, prefix=prefix)
+            save_item(item=item, path=p, prefix=prefix, postfix=postfix)
 
 
 class TaylorAnalysis(object):
@@ -165,9 +170,11 @@ class TaylorAnalysis(object):
         masked_factor = np.array(range(gradients.shape[1]))
 
         # check for derivatives with same variables
-        masked_factor = torch.tensor(masked_factor == ind_j, dtype=int) \
-            + torch.tensor(masked_factor == ind_i, dtype=int) \
+        masked_factor = (
+            torch.tensor(masked_factor == ind_j, dtype=int)
+            + torch.tensor(masked_factor == ind_i, dtype=int)
             + torch.tensor([ind_j == ind_i] * masked_factor.shape[0], dtype=int)
+        )
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
@@ -366,6 +373,8 @@ class TaylorAnalysis(object):
         derivation_order=2,
         eval_nodes="all",
         eval_only_max_node=False,
+        sorted=True,
+        number_of_tc_per_plot=20,
         path="./coefficients.pdf",
     ):
         """
@@ -379,6 +388,10 @@ class TaylorAnalysis(object):
             variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
+            sorted (bool): Sort the computed Taylor coefficients based on their numerical value.
+            number_of_tc_per_plot (int): number of drawn taylor coefficients inside one plot. If the number of
+                                         taylor coefficients is greater than number_of_tc_per_plot multiple
+                                         plots are created.
             path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
         """
 
@@ -404,7 +417,11 @@ class TaylorAnalysis(object):
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
 
-        self._eval_max_only, self.eval_max_only = self.eval_max_only, eval_only_max_node  # copy
+        try:
+            self._eval_max_only, self.eval_max_only = self.eval_max_only, eval_only_max_node  # copy
+        except AttributeError:  # if not set before
+            self.eval_max_only = eval_only_max_node
+
         for node, _dataframe in _checkpoints.items():
             self._tc_checkpoint(
                 x_data=x_data,
@@ -415,26 +432,54 @@ class TaylorAnalysis(object):
                 derivatives_for_calculation=_derivatives_calculation,
                 node=node,
             )
-        self.eval_max_only = self._eval_max_only  # put it back
+
+        try:
+            self.eval_max_only = self._eval_max_only  # put it back
+        except AttributeError:  # derefernce it if it was not was set previously
+            del self.eval_max_only
 
         for node, _dataframe in _checkpoints.items():
-            fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-            xlabels = []
+            _stacked_dataframe = pd.DataFrame()
 
-            for idx, column in enumerate(_dataframe.columns):
-                _label = ",".join(np.array(self.variable_names)[np.array(column)])
-                xlabels.append(f"$<t_{{{_label}}}>$")
-                ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
+            _stacked_dataframe["TC Index"] = _dataframe.columns
+            _stacked_dataframe["TC Variables"] = [tuple(np.array(variable_names)[np.array(idx)]) for idx in _dataframe.columns]
+            _stacked_dataframe["TC Value"] = _dataframe.values[0]
 
-            ax.set_ylabel("$<t_i>$", loc="top")
-            ax.set_xticks(list(range(idx + 1)))
-            ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
-            ax.grid(axis="x", alpha=0.25)
-            plt.tight_layout()
+            if sorted:
+                _stacked_dataframe.sort_values(by="TC Value", ascending=False, inplace=True)
+
             prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
 
-            save_item(fig, path, prefix=prefix)
-            plt.close("all")
+            _csv_path = path if isinstance(path, str) else path[0]
+            _csv_path = f"{os.path.splitext(_csv_path)[0]}.csv"
+
+            save_item(_stacked_dataframe, _csv_path, prefix=prefix)
+
+        for node, _dataframe in _checkpoints.items():
+
+            if sorted:
+                _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True)
+
+            m, n = _dataframe.shape[1], number_of_tc_per_plot
+            splits = [np.arange(m)[i:i + n] for i in range(0, m, n)]
+            for split_idx, split in enumerate(splits):
+                fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+                xlabels = []
+                for idx, column in enumerate(_dataframe.columns[split]):
+                    _label = ",".join(np.array(variable_names)[np.array(column)])
+                    xlabels.append(f"$<t_{{{_label}}}>$")
+                    ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
+
+                ax.set_ylabel("$<t_i>$", loc="top")
+                ax.set_xticks(list(range(idx + 1)))
+                ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
+                ax.grid(axis="x", alpha=0.25)
+
+                plt.tight_layout()
+                prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+                postfix = f"{split_idx}" if len(splits) > 1 else None
+                save_item(fig, path, prefix=prefix, postfix=postfix)
+                plt.close("all")
 
     def save_checkpoints(self, path="./tc_checkpoints.csv"):
         """
