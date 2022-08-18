@@ -59,7 +59,8 @@ class TaylorAnalysis(object):
 
         # binary case skips everything
         if pred.dim() == 1 or pred.shape[1] == 1:
-            return pred
+            # sum up everything
+            return pred.sum()
 
         # first step: masking non max values if self.eval_max_only is set
         # and keeping only the output nodes with the highest value
@@ -73,9 +74,12 @@ class TaylorAnalysis(object):
         if isinstance(node, (int, tuple)):  # i.e. 0, (0, 1)
             pred = pred[:, node]
 
-        return pred
+        # sum up everything
+        pred = pred.sum()
 
-    def _mean(self, data):
+        return pred 
+
+    def _abs_mean(self, data):
         """Compute abs and mean of taylorcoefficients.
 
         Args:
@@ -102,10 +106,9 @@ class TaylorAnalysis(object):
         x_data.grad = None
         pred = self.model(x_data)
         pred = self._node_selection(pred, **kwargs)
-        pred = pred.sum()
         # first order grads
         gradients = grad(pred, x_data)
-        return self._mean(gradients[0])
+        return self._abs_mean(gradients[0])
 
     def _second_order(self, x_data, ind_i, **kwargs):
         """Compute second order taylorcoefficients. The model is first derivated according to the ind_i-th feature and second to all others.
@@ -122,7 +125,6 @@ class TaylorAnalysis(object):
         x_data.grad = None
         pred = self.model(x_data)
         pred = self._node_selection(pred, **kwargs)
-        pred = pred.sum()
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
         gradients = gradients[0].sum(dim=0)
@@ -135,7 +137,7 @@ class TaylorAnalysis(object):
         masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
         masked_factor = (masked_factor != ind_i) + 1
         gradients *= masked_factor
-        return self._mean(gradients)
+        return self._abs_mean(gradients)
 
     def _third_order(self, x_data, ind_i, ind_j, **kwargs):
         """Compute third order taylorcoefficients. The model is derivated to the ind_i-th feature,
@@ -154,7 +156,6 @@ class TaylorAnalysis(object):
         x_data.grad = None
         pred = self.model(x_data)
         pred = self._node_selection(pred, **kwargs)
-        pred = pred.sum()
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
         gradients = gradients[0].sum(dim=0)
@@ -178,7 +179,7 @@ class TaylorAnalysis(object):
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
-        return self._mean(gradients)
+        return self._abs_mean(gradients)
 
     def _get_derivatives(self, option, variable_idx, derivation_order, **kwargs):
         """
