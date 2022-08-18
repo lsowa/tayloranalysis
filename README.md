@@ -73,9 +73,9 @@ Note that your data should be of shape (batch, features). `names` should be a li
 
 ## Resluts
 
-![Plottet Taylorcoefficients after Training](examples/single_node/coefficients.png "test")
+![Plottet Taylorcoefficients after Training](examples/single_node/node_all_coefficients.png "test")
 
-![Plotted Checkpoints](examples/single_node/tc_training.png)
+![Plotted Checkpoints](examples/single_node/node_all__tc_training.png)
 
 
 ## Authors
