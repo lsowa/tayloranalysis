@@ -301,11 +301,11 @@ if __name__ == "__main__":
             cov_sig,
             mean_bkg,
             cov_bkg,
-            num_train=100000,
-            num_test=100000)
+            num_train=10000,
+            num_test=10000)
             #num_train=10000000,
             #num_test=10)
     else:
         obj = load_higgs()
     # Write to file
-    pickle.dump(obj, open("binary/data.pickle", "wb"))
+    pickle.dump(obj, open("data.pickle", "wb"))

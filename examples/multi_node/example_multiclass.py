@@ -64,7 +64,7 @@ model.setup_tc_checkpoints(
     variable_names=["x_1", "x_2"],
     derivation_order=3,
     eval_nodes=[0, 1, (0, 1), "all"],  # single int or 'all' is also possible
-    eval_only_max_node=True,
+    eval_only_max_node=False,
 )
 
 start = time.time()
@@ -94,7 +94,7 @@ model.plot_taylor_coefficients(
     variable_names=["x_1", "x_2"],
     derivation_order=3,
     path=["./coefficients.pdf", "./coefficients.png"],
-    eval_nodes=[0, 1, (0, 1), "all"],  # single int or 'all' is also possible
+    eval_nodes=[0, 1, (0, 1), 2, "all"],  # single int or 'all' is also possible
     eval_only_max_node=False,
 )
 

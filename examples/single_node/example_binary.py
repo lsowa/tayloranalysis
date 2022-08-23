@@ -3,9 +3,8 @@ import time
 
 import torch
 from torch import nn
-import sys
 
-from tayloranalysis import TaylorAnalysis
+from tayloranalysis.cls import TaylorAnalysis
 
 # load data
 
@@ -48,7 +47,7 @@ model = TaylorAnalysis(model)
 optim = torch.optim.Adam(model.parameters(), lr=0.001)
 crit = nn.BCELoss()
 
-device = torch.device(3)
+device = torch.device(0)
 x_train = x_train.to(device)
 y_train = y_train.to(device)
 model.to(device)

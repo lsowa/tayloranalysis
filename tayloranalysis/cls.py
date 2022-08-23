@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.autograd import grad
+from matplotlib.backends.backend_pdf import PdfPages
 
 matplotlib.rc("font", size=16, family="serif")
 lw, markeredgewidth = 3, 3
@@ -45,6 +46,8 @@ class TaylorAnalysis(object):
         self.model = model
         self._orders = {1: self._first_order, 2: self._second_order, 3: self._third_order}
 
+        self._apply_abs = False  # TODO: Find a context where this could be set?
+
     def _node_selection(self, pred, node=None):
         """In case of a multiclassification, selects a corresponding class (node) and, if
            necessary, masks individual entries (sets them to 0.0), if they are not
@@ -77,10 +80,10 @@ class TaylorAnalysis(object):
         # sum up everything
         pred = pred.sum()
 
-        return pred 
+        return pred
 
     def _abs_mean(self, data):
-        """Compute abs and mean of taylorcoefficients.
+        """Compute abs and mean of taylorcoefficients if self._apply_abs is set, and only the mean otherwise.
 
         Args:
             data (torch.tensor): tensor with taylorcoefficients of shape (batch, features)
@@ -88,9 +91,10 @@ class TaylorAnalysis(object):
         Returns:
             numpy.array: Array means of taylorcoefficients.
         """
-        data = torch.abs(data)
-        data = torch.mean(data, dim=0)
-        return data.cpu().detach().numpy()
+        if self._apply_abs:
+            data = torch.abs(data)
+        data = data.mean(axis=0).cpu().detach().numpy()
+        return data
 
     def _first_order(self, x_data, **kwargs):
         """Compute first order taylorcoefficients.
@@ -447,7 +451,7 @@ class TaylorAnalysis(object):
             _stacked_dataframe["TC Value"] = _dataframe.values[0]
 
             if sorted:
-                _stacked_dataframe.sort_values(by="TC Value", ascending=False, inplace=True)
+                _stacked_dataframe.sort_values(by="TC Value", ascending=False, inplace=True, key=abs)
 
             prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
 
@@ -459,27 +463,49 @@ class TaylorAnalysis(object):
         for node, _dataframe in _checkpoints.items():
 
             if sorted:
-                _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True)
+                _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True, key=abs)
 
             m, n = _dataframe.shape[1], number_of_tc_per_plot
-            splits = [np.arange(m)[i:i + n] for i in range(0, m, n)]
-            for split_idx, split in enumerate(splits):
-                fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-                xlabels = []
-                for idx, column in enumerate(_dataframe.columns[split]):
-                    _label = ",".join(np.array(variable_names)[np.array(column)])
-                    xlabels.append(f"$<t_{{{_label}}}>$")
-                    ax.plot(idx, _dataframe.loc[0][column], "+", color="black", markersize=10, markeredgewidth=markeredgewidth)
+            splits = [np.arange(m)[i: i + n] for i in range(0, m, n)]
 
-                ax.set_ylabel("$<t_i>$", loc="top")
-                ax.set_xticks(list(range(idx + 1)))
-                ax.set_xticklabels(xlabels, rotation=45, ha="right", rotation_mode="anchor")
-                ax.grid(axis="x", alpha=0.25)
+            prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+            directory, filename = tuple(os.path.split(path if isinstance(path, str) else path[0]))
+            filename = f"{prefix}_{os.path.splitext(filename)[0]}_combined.pdf"
+            combined_pdf = os.path.join(directory, filename)
 
-                plt.tight_layout()
-                prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
-                postfix = f"{split_idx}" if len(splits) > 1 else None
-                save_item(fig, path, prefix=prefix, postfix=postfix)
+            with PdfPages(combined_pdf) as pdf:
+                figs = []
+                leftpads, rightpads = [], []
+                for split_idx, split in enumerate(splits):
+                    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+                    ylabels = []
+                    for idx, column in enumerate(_dataframe.columns[split][::-1]):
+                        _label = ",".join(np.array(variable_names)[np.array(column)])
+                        ylabels.append(f"$<t_{{{_label}}}>$")
+                        ax.plot(_dataframe.loc[0][column], idx, marker="+", color="black", markersize=10, markeredgewidth=markeredgewidth)
+
+                    ax.set_xlabel("$<t_i>$")
+                    ax.set_ylim(ax.get_ylim())
+                    if not self._apply_abs:
+                        xtick = abs(np.array(list(ax.get_xlim()))).max()
+                        xmargin = 2 * xtick * plt.margins()[1]
+                        ax.set_xlim(-xtick - xmargin, xtick + xmargin)
+                        ax.set_xticks([-xtick, 0, +xtick])
+                        ax.vlines(0, *ax.get_ylim(), alpha=0.125, color="grey", ls="-", lw=1)
+                    ax.set_yticks(list(range(idx + 1)))
+                    ax.set_yticklabels(ylabels, ha="right", rotation_mode="anchor")
+                    ax.grid(axis="y", alpha=0.25)
+
+                    plt.tight_layout()
+                    prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+                    postfix = f"{split_idx}" if len(splits) > 1 else None
+                    save_item(fig, path, prefix=prefix, postfix=postfix)
+                    figs.append(fig)
+                    leftpads.append(ax._originalPosition.get_points()[0][0])
+                    rightpads.append(ax._originalPosition.get_points()[1][0])
+                for fig in figs:
+                    fig.subplots_adjust(left=max(leftpads), right=min(rightpads))
+                    pdf.savefig(fig)
                 plt.close("all")
 
     def save_checkpoints(self, path="./tc_checkpoints.csv"):

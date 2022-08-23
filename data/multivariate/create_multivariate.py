@@ -25,7 +25,7 @@ means = [mean1, mean2, mean3]
 covs = [cov1, cov2, cov3]
 
 # choose number of events
-n = 200000
+n = 20000
 
 # create and plot data
 
@@ -35,7 +35,7 @@ data_list = []
 for mean, cov in zip(means, covs):
     data = np.random.multivariate_normal(mean, cov, n)
     data_list.append(data)
-    
+
 for class_n, zipper in enumerate(zip(data_list, colors)):
     data, cmap = zipper[0], zipper[1]
 
@@ -69,4 +69,3 @@ x_data = preproc.transform(x_data)
 x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.4)
 
 pickle.dump({'x_train': x_train, 'x_test': x_test, 'y_train': y_train, 'y_test': y_test}, open("multiclass_data.pickle", "wb"))
-
