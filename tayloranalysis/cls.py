@@ -7,50 +7,7 @@ import torch
 from torch.autograd import grad
 
 import tayloranalysis.plots as plots
-from tayloranalysis.utils import save_item
-
-
-class Summarization(object):
-    """Some summarization examples.
-
-    Input shape (n, m) where n is the number of events in a batch and
-    m the number of considered variables.
-
-    The returned (numpy) array must be able to be manipulated by a
-    1D numpy boolean mask with the shape m
-    """
-
-    @staticmethod
-    def abs_mean(data):
-        return data.abs().mean(axis=0).cpu().detach().numpy()
-
-    @staticmethod
-    def mean(data):
-        return data.mean(axis=0).cpu().detach().numpy()
-
-    @staticmethod
-    def passtrough(data):
-        return data.T.cpu().detach().numpy()
-
-    @staticmethod
-    def mean_std(data):
-        mean = data.mean(axis=0).cpu().detach().numpy()
-        std = data.std(axis=0).cpu().detach().numpy()
-        return np.array(list(zip(mean, std)))
-
-    @staticmethod
-    def quantile(data):
-        lower_quantile, upper_quantile = 0.05, 0.95
-        data = data.cpu().detach().numpy()
-        return np.array(
-            list(
-                zip(
-                    np.quantile(data, lower_quantile, axis=0),
-                    np.quantile(data, 0.5, axis=0),
-                    np.quantile(data, upper_quantile, axis=0),
-                )
-            )
-        )
+from tayloranalysis.utils import Summarization, get_external_representation, save_item
 
 
 class TaylorAnalysis(object):
@@ -239,7 +196,7 @@ class TaylorAnalysis(object):
         """
         _df = pd.DataFrame(data=None, columns=["Epoch"] + derivatives)
         _df.set_index("Epoch", inplace=True)
-        _df = _df.astype(float)  # go with float until encountering something different
+        _df = _df.astype(object)
         return _df
 
     def _tc_checkpoint(
@@ -278,37 +235,9 @@ class TaylorAnalysis(object):
             nplet = _nplet(*item)
             mask = _mask(nplet)
             if any(mask):
-                try:
-                    dataframe.loc[epoch, np.array(nplet)[mask]] = list(
-                        self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
-                    )
-                except ValueError:  # change to object dttype if the dataframe is filled with non int/float like values, i.e. arrays
-                    dataframe = dataframe.astype(object)
-                    dataframe.loc[epoch, np.array(nplet)[mask]] = list(
-                        self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
-                    )
-
-    def tc_checkpoint(self, x_data, epoch):
-        """
-        Compute and save taylorcoefficients to plot and save them later.
-
-        Args:
-            x_data (torch.tensor): X data (batch, features).
-            epoch (int): Current epoch.
-
-        Returns:
-            None
-        """
-        for node, dataframe in self._tc_points.items():
-            self._tc_checkpoint(
-                x_data=x_data,
-                epoch=epoch,
-                dataframe=dataframe,
-                variable_mask=self.variable_mask,
-                variable_idx=self.variable_idx,
-                derivatives_for_calculation=self.derivatives_for_calculation,
-                node=node,
-            )
+                dataframe.loc[epoch, np.array(nplet)[mask]] = list(
+                    self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
+                )
 
     def setup_tc_checkpoints(
         self,
@@ -367,6 +296,28 @@ class TaylorAnalysis(object):
             self._tc_points = {key: deepcopy(_empty_dataframe) for key in eval_nodes}
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
+
+    def tc_checkpoint(self, x_data, epoch):
+        """
+        Compute and save taylorcoefficients to plot and save them later.
+
+        Args:
+            x_data (torch.tensor): X data (batch, features).
+            epoch (int): Current epoch.
+
+        Returns:
+            None
+        """
+        for node, dataframe in self._tc_points.items():
+            self._tc_checkpoint(
+                x_data=x_data,
+                epoch=epoch,
+                dataframe=dataframe,
+                variable_mask=self.variable_mask,
+                variable_idx=self.variable_idx,
+                derivatives_for_calculation=self.derivatives_for_calculation,
+                node=node,
+            )
 
     def calculate_tc(
         self,
@@ -442,9 +393,12 @@ class TaylorAnalysis(object):
     def plot_taylor_coefficients(self, *args, **kwargs):
         """
         Plot taylorcoefficients for current weights of the model.
+        calculate_tc if x_data is provided. Otherwise calculate_tc
+        before calling this function
 
         Args and Kwargs are passed to defined tc_plot_function.
         """
+
         if "x_data" in kwargs:
             self.calculate_tc(x_data=kwargs.pop("x_data"), **kwargs)
             for item in [
@@ -457,6 +411,8 @@ class TaylorAnalysis(object):
                     kwargs.pop(item)
                 except KeyError:
                     pass
+        if not hasattr(self, "_tc_point"):
+            raise AttributeError("Run 'calculate_tc' first or provide kwargs for 'calculate_tc' inplace.")
         self.tc_plot_function(self, *args, **kwargs)
 
     def plot_checkpoints(self, *args, **kwargs):
@@ -467,27 +423,69 @@ class TaylorAnalysis(object):
         """
         self.checkpoint_plot_function(self, *args, **kwargs)
 
-    def save_tc_points(self, path="./tc_checkpoints.csv"):
+    def save_tc(self, path="./tc_checkpoints.csv"):
         """
         Saves the checkpoints calculated during the training.
 
         Args:
             path (str): /path/to/save/tc.csv
         """
-        for key, dataframe in self._tc_points.items():
+        for key, dataframe in self.tc_points.items():
             save_item(
                 item=dataframe,
                 path=path,
-                prefix=f'node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
+                prefix=f'training_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
+            )
+        for key, dataframe in self.tc_point.items():
+            save_item(
+                item=dataframe,
+                path=path,
+                prefix=f'testing_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
             )
 
     @property
     def tc_points(self):
-        return self._tc_points
+
+        current_tc_points_shapes = np.array(list(map(lambda it: it.shape, self._tc_points.values())))
+
+        try:
+            if current_tc_points_shapes != self._previous_tc_points_shapes:
+                self._tc_points_external_representation = get_external_representation(
+                    tc_collection_dict=self._tc_points,
+                    summarization_function=self.summarization_function,
+                )
+                self._previous_tc_points_shapes = current_tc_points_shapes
+        except AttributeError:
+            self._previous_tc_points_shapes = current_tc_points_shapes
+            self._tc_points_external_representation = get_external_representation(
+                tc_collection_dict=self._tc_points,
+                summarization_function=self.summarization_function,
+            )
+
+        return self._tc_points_external_representation
 
     @property
     def tc_point(self):
-        return self._tc_point
+
+        current_tc_point_shapes = np.array(list(map(lambda it: it.shape, self._tc_point.values())))
+
+        try:
+            if current_tc_point_shapes != self._previous_tc_point_shapes:
+                self._tc_point_external_representation = get_external_representation(
+                    tc_collection_dict=self._tc_point,
+                    summarization_function=self.summarization_function,
+                    convert_to_single_point=True,
+                )
+                self._previous_tc_point_shapes = current_tc_point_shapes
+        except AttributeError:
+            self._previous_tc_point_shapes = current_tc_point_shapes
+            self._tc_point_external_representation = get_external_representation(
+                tc_collection_dict=self._tc_point,
+                summarization_function=self.summarization_function,
+                convert_to_single_point=True,
+            )
+
+        return self._tc_point_external_representation
 
     def __getattribute__(self, name):
         """

@@ -13,16 +13,19 @@ lw, markeredgewidth = 3, 3
 
 def checkpoints_from_single_values(tc_object, variable_names=None, path="./tc_training.pdf"):
     """
-    Plot saved checkpoints.
+    Plot saved checkpoints. Only works for summarization functions where a single value (i.e. mean) is returned.
 
     Args:
         variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
         path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
     """
+    # TODO: Redesign it and access only publically available attributes
+
     variable_names = variable_names if variable_names else tc_object.variable_names
 
     for node, dataframe in tc_object._tc_points.items():
+        dataframe = dataframe.astype(float)
         fig_and_ax = [plt.subplots(1, 1, figsize=(10, 7)) for _ in range(tc_object.derivation_order + 1)]
         fig, ax = tuple(zip(*fig_and_ax))  # 0: all, 1: first order, 2: second order...
 
@@ -56,7 +59,8 @@ def taylor_coefficients_from_single_values(
     path="./coefficients.pdf",
 ):
     """
-    Plot taylorcoefficients for current weights of the model.
+    Plot taylorcoefficients for current weights of the model. . Only works for summarization functions where a
+    single value (i.e. mean) is returned.
 
     Args:
         variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
@@ -67,13 +71,14 @@ def taylor_coefficients_from_single_values(
                                      plots are created.
         path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
     """
+    # TODO: Redesign it and access only publically available attributes
 
     variable_names = variable_names or [f"x_{idx}" for idx in tc_object._variable_idx]
 
     save_stacked_single_value_tc_point(tc_object=tc_object, variable_names=variable_names, path=path)
 
     for node, _dataframe in tc_object._tc_point.items():
-
+        _dataframe = _dataframe.astype(float)
         if sorted:
             _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True, key=abs)
 

@@ -2,16 +2,12 @@ import pickle
 import time
 
 import torch
+from tayloranalysis import TaylorAnalysis
 from torch import nn
-import sys;sys.path.append("../..")
-import sys;sys.path.append(".")
-import sys;sys.path.append("..")
-from tayloranalysis.cls import TaylorAnalysis
 
 # load data
 
-# data = pickle.load(open("../../data/binary/data.pickle", "rb"), encoding="latin-1")
-data = pickle.load(open("./data/binary/data.pickle", "rb"), encoding="latin-1")
+data = pickle.load(open("../../data/binary/data.pickle", "rb"), encoding="latin-1")
 x_train = torch.tensor(data["x_train"], dtype=torch.float)
 y_train = torch.tensor(data["y_train"], dtype=torch.float)
 
@@ -87,6 +83,14 @@ x_test = torch.tensor(data["x_test"], dtype=torch.float).to(device)
 
 # plot taylorcoefficients after training
 
+# calculate tc explicitly
+model.calculate_tc(
+    x_data=x_test,
+    considered_variables_idx=[0, 1],
+    derivation_order=3,
+)
+
+# or implicitly by providing necessary quantities to the plotting function
 model.plot_taylor_coefficients(
     # kwargs (!) passed to calculate_tc if 'model.calculate_tc' not called explicetly previously
     x_data=x_test,
