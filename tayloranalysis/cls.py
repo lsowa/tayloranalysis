@@ -6,8 +6,8 @@ import pandas as pd
 import torch
 from torch.autograd import grad
 
-import tayloranalysis.plots as plots
-from tayloranalysis.utils import Summarization, get_external_representation, save_item
+from .plots import checkpoints_from_single_values, taylor_coefficients_from_single_values
+from .utils import Summarization, get_external_representation, save_item
 
 
 class TaylorAnalysis(object):
@@ -21,8 +21,8 @@ class TaylorAnalysis(object):
         self._orders = {1: self._first_order, 2: self._second_order, 3: self._third_order}
 
         self.summarization_function = Summarization.abs_mean
-        self.checkpoint_plot_function = plots.checkpoints_from_single_values
-        self.tc_plot_function = plots.taylor_coefficients_from_single_values
+        self.checkpoint_plot_function = checkpoints_from_single_values
+        self.tc_plot_function = taylor_coefficients_from_single_values
 
         self._apply_abs = "abs" in self.summarization_function.__name__  # TODO: Find a context where this could be set?
 
@@ -423,40 +423,49 @@ class TaylorAnalysis(object):
         """
         self.checkpoint_plot_function(self, *args, **kwargs)
 
-    def save_tc(self, path="./tc_checkpoints.csv"):
+    def save_tc(
+        self,
+        path=None,
+        path_tc_points=None,
+        path_tc_point=None
+    ):
         """
         Saves the checkpoints calculated during the training.
 
         Args:
-            path (str): /path/to/save/tc.csv
+            path (str): /path/to/save/tc.csv to save all calculated tcs
+            tc_points_path (str): /path/to/save/tc.csv to save tc from checkpoints
+            tc_points_path (str): /path/to/save/tc.csv to save tc from calculate_tc
         """
-        for key, dataframe in self.tc_points.items():
-            save_item(
-                item=dataframe,
-                path=path,
-                prefix=f'training_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
-            )
-        for key, dataframe in self.tc_point.items():
-            save_item(
-                item=dataframe,
-                path=path,
-                prefix=f'testing_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
-            )
+        if (path or path_tc_points) and hasattr(self, "_tc_points"):
+            for key, dataframe in self.tc_points.items():
+                save_item(
+                    item=dataframe,
+                    path=path or path_tc_points,
+                    prefix=f'training_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
+                )
+        if (path or path_tc_point) and hasattr(self, "_tc_point"):
+            for key, dataframe in self.tc_point.items():
+                save_item(
+                    item=dataframe,
+                    path=path or path_tc_point,
+                    prefix=f'testing_node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
+                )
 
     @property
     def tc_points(self):
 
-        current_tc_points_shapes = np.array(list(map(lambda it: it.shape, self._tc_points.values())))
+        current_tc_points_id = id(self._tc_points)
 
         try:
-            if current_tc_points_shapes != self._previous_tc_points_shapes:
+            if current_tc_points_id != self._previous_tc_points_id:
                 self._tc_points_external_representation = get_external_representation(
                     tc_collection_dict=self._tc_points,
                     summarization_function=self.summarization_function,
                 )
-                self._previous_tc_points_shapes = current_tc_points_shapes
+                self._previous_tc_points_id = current_tc_points_id
         except AttributeError:
-            self._previous_tc_points_shapes = current_tc_points_shapes
+            self._previous_tc_points_id = current_tc_points_id
             self._tc_points_external_representation = get_external_representation(
                 tc_collection_dict=self._tc_points,
                 summarization_function=self.summarization_function,
@@ -467,18 +476,18 @@ class TaylorAnalysis(object):
     @property
     def tc_point(self):
 
-        current_tc_point_shapes = np.array(list(map(lambda it: it.shape, self._tc_point.values())))
+        current_tc_point_id = id(self._tc_point)
 
         try:
-            if current_tc_point_shapes != self._previous_tc_point_shapes:
+            if current_tc_point_id != self._previous_tc_point_id:
                 self._tc_point_external_representation = get_external_representation(
                     tc_collection_dict=self._tc_point,
                     summarization_function=self.summarization_function,
                     convert_to_single_point=True,
                 )
-                self._previous_tc_point_shapes = current_tc_point_shapes
+                self._previous_tc_point_id = current_tc_point_id
         except AttributeError:
-            self._previous_tc_point_shapes = current_tc_point_shapes
+            self._previous_tc_point_id = current_tc_point_id
             self._tc_point_external_representation = get_external_representation(
                 tc_collection_dict=self._tc_point,
                 summarization_function=self.summarization_function,

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
-from tayloranalysis.utils import save_item, save_stacked_single_value_tc_point
+from .utils import save_item, save_stacked_single_value_tc_point
 
 matplotlib.rc("font", size=16, family="serif")
 lw, markeredgewidth = 3, 3

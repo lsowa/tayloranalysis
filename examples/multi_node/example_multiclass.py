@@ -116,4 +116,4 @@ model.plot_checkpoints(
     variable_names=["x_1", "x_2"],
     path=["./tc_training.pdf", "./tc_training.png"],
 )
-# model.save_tc_points(path="./tc_checkpoints.csv")
+# model.save_tc(path="./tc_checkpoints.csv")

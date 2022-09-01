@@ -64,8 +64,12 @@ def save_item(item, path, prefix=None, postfix=None):
             item.savefig(path, bbox_inches="tight")
         elif isinstance(item, dict):
             np.savez(path, **item)
-        elif isinstance(item, pd.DataFrame):
+        elif isinstance(item, pd.DataFrame) and os.path.splitext(path)[1] == ".csv":
             item.to_csv(path)
+        elif isinstance(item, pd.DataFrame) and os.path.splitext(path)[1] == ".feather":
+            item.columns = [f"{it}" for it in item.columns]
+            item.reset_index(inplace=True)
+            item.to_feather(path)
     if isinstance(path, list):
         for p in path:
             save_item(item=item, path=p, prefix=prefix, postfix=postfix)
