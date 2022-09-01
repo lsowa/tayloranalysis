@@ -1,39 +1,56 @@
-import os
 from copy import deepcopy
 from itertools import product
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from torch.autograd import grad
-from matplotlib.backends.backend_pdf import PdfPages
 
-matplotlib.rc("font", size=16, family="serif")
-lw, markeredgewidth = 3, 3
+import tayloranalysis.plots as plots
+from tayloranalysis.utils import save_item
 
 
-# helper function for saving items
-def save_item(item, path, prefix=None, postfix=None):
-    if not isinstance(path, list):
-        if prefix or postfix:
-            directory, filename = os.path.split(path)
-            if prefix:
-                filename = f"{prefix}_{filename}"
-            if postfix:
-                basename, extension = os.path.splitext(filename)
-                filename = f"{basename}_{postfix}{extension}"
-            path = os.path.join(directory, filename)
-        if isinstance(item, matplotlib.figure.Figure):
-            item.savefig(path, bbox_inches="tight")
-        elif isinstance(item, dict):
-            np.savez(path, **item)
-        elif isinstance(item, pd.DataFrame):
-            item.to_csv(path)
-    if isinstance(path, list):
-        for p in path:
-            save_item(item=item, path=p, prefix=prefix, postfix=postfix)
+class Summarization(object):
+    """Some summarization examples.
+
+    Input shape (n, m) where n is the number of events in a batch and
+    m the number of considered variables.
+
+    The returned (numpy) array must be able to be manipulated by a
+    1D numpy boolean mask with the shape m
+    """
+
+    @staticmethod
+    def abs_mean(data):
+        return data.abs().mean(axis=0).cpu().detach().numpy()
+
+    @staticmethod
+    def mean(data):
+        return data.mean(axis=0).cpu().detach().numpy()
+
+    @staticmethod
+    def passtrough(data):
+        return data.T.cpu().detach().numpy()
+
+    @staticmethod
+    def mean_std(data):
+        mean = data.mean(axis=0).cpu().detach().numpy()
+        std = data.std(axis=0).cpu().detach().numpy()
+        return np.array(list(zip(mean, std)))
+
+    @staticmethod
+    def quantile(data):
+        lower_quantile, upper_quantile = 0.05, 0.95
+        data = data.cpu().detach().numpy()
+        return np.array(
+            list(
+                zip(
+                    np.quantile(data, lower_quantile, axis=0),
+                    np.quantile(data, 0.5, axis=0),
+                    np.quantile(data, upper_quantile, axis=0),
+                )
+            )
+        )
 
 
 class TaylorAnalysis(object):
@@ -46,7 +63,11 @@ class TaylorAnalysis(object):
         self.model = model
         self._orders = {1: self._first_order, 2: self._second_order, 3: self._third_order}
 
-        self._apply_abs = False  # TODO: Find a context where this could be set?
+        self.summarization_function = Summarization.abs_mean
+        self.checkpoint_plot_function = plots.checkpoints_from_single_values
+        self.tc_plot_function = plots.taylor_coefficients_from_single_values
+
+        self._apply_abs = "abs" in self.summarization_function.__name__  # TODO: Find a context where this could be set?
 
     def _node_selection(self, pred, node=None):
         """In case of a multiclassification, selects a corresponding class (node) and, if
@@ -82,8 +103,8 @@ class TaylorAnalysis(object):
 
         return pred
 
-    def _abs_mean(self, data):
-        """Compute abs and mean of taylorcoefficients if self._apply_abs is set, and only the mean otherwise.
+    def _summarization(self, data):
+        """Passtrough the summarization_function provided by user.
 
         Args:
             data (torch.tensor): tensor with taylorcoefficients of shape (batch, features)
@@ -91,10 +112,7 @@ class TaylorAnalysis(object):
         Returns:
             numpy.array: Array means of taylorcoefficients.
         """
-        if self._apply_abs:
-            data = torch.abs(data)
-        data = data.mean(axis=0).cpu().detach().numpy()
-        return data
+        return self.summarization_function(data)
 
     def _first_order(self, x_data, **kwargs):
         """Compute first order taylorcoefficients.
@@ -112,7 +130,7 @@ class TaylorAnalysis(object):
         pred = self._node_selection(pred, **kwargs)
         # first order grads
         gradients = grad(pred, x_data)
-        return self._abs_mean(gradients[0])
+        return self._summarization(gradients[0])
 
     def _second_order(self, x_data, ind_i, **kwargs):
         """Compute second order taylorcoefficients. The model is first derivated according to the ind_i-th feature and second to all others.
@@ -141,7 +159,7 @@ class TaylorAnalysis(object):
         masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
         masked_factor = (masked_factor != ind_i) + 1
         gradients *= masked_factor
-        return self._abs_mean(gradients)
+        return self._summarization(gradients)
 
     def _third_order(self, x_data, ind_i, ind_j, **kwargs):
         """Compute third order taylorcoefficients. The model is derivated to the ind_i-th feature,
@@ -183,7 +201,7 @@ class TaylorAnalysis(object):
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
-        return self._abs_mean(gradients)
+        return self._summarization(gradients)
 
     def _get_derivatives(self, option, variable_idx, derivation_order, **kwargs):
         """
@@ -221,7 +239,7 @@ class TaylorAnalysis(object):
         """
         _df = pd.DataFrame(data=None, columns=["Epoch"] + derivatives)
         _df.set_index("Epoch", inplace=True)
-        _df = _df.astype(float)
+        _df = _df.astype(float)  # go with float until encountering something different
         return _df
 
     def _tc_checkpoint(
@@ -249,14 +267,26 @@ class TaylorAnalysis(object):
         Returns:
             None
         """
-        _nplet = lambda *__x: [(idx,) for idx in variable_idx] if __x is None else [(idx, *__x) for idx in variable_idx]
-        _mask = lambda __nplet: pd.Series(__nplet).isin(dataframe.columns).to_numpy()
+
+        def _nplet(*__x):
+            return [(idx,) for idx in variable_idx] if __x is None else [(idx, *__x) for idx in variable_idx]
+
+        def _mask(__nplet):
+            return pd.Series(__nplet).isin(dataframe.columns).to_numpy()
 
         for item in derivatives_for_calculation:
             nplet = _nplet(*item)
             mask = _mask(nplet)
             if any(mask):
-                dataframe.loc[epoch, np.array(nplet)[mask]] = self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
+                try:
+                    dataframe.loc[epoch, np.array(nplet)[mask]] = list(
+                        self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
+                    )
+                except ValueError:  # change to object dttype if the dataframe is filled with non int/float like values, i.e. arrays
+                    dataframe = dataframe.astype(object)
+                    dataframe.loc[epoch, np.array(nplet)[mask]] = list(
+                        self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
+                    )
 
     def tc_checkpoint(self, x_data, epoch):
         """
@@ -269,7 +299,7 @@ class TaylorAnalysis(object):
         Returns:
             None
         """
-        for node, dataframe in self._checkpoints.items():
+        for node, dataframe in self._tc_points.items():
             self._tc_checkpoint(
                 x_data=x_data,
                 epoch=epoch,
@@ -332,58 +362,23 @@ class TaylorAnalysis(object):
         )
         _empty_dataframe = self._get_empty_checkpoints_dataframe(self.derivatives_for_dataframe)
         if eval_nodes == "all" or isinstance(eval_nodes, int):
-            self._checkpoints = {key: deepcopy(_empty_dataframe) for key in [eval_nodes]}
+            self._tc_points = {key: deepcopy(_empty_dataframe) for key in [eval_nodes]}
         elif isinstance(eval_nodes, (list, tuple)):
-            self._checkpoints = {key: deepcopy(_empty_dataframe) for key in eval_nodes}
+            self._tc_points = {key: deepcopy(_empty_dataframe) for key in eval_nodes}
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
 
-    def plot_checkpoints(self, path="./tc_training.pdf"):
-        """
-        Plot saved checkpoints.
-
-        Args:
-            path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
-        """
-        for node, dataframe in self._checkpoints.items():
-            fig_and_ax = [plt.subplots(1, 1, figsize=(10, 7)) for _ in range(self.derivation_order + 1)]
-            fig, ax = tuple(zip(*fig_and_ax))  # 0: all, 1: first order, 2: second order...
-
-            for column in dataframe.columns:
-                _label = ",".join(np.array(self.variable_names)[np.array(column)])
-                _label = f"$<t_{{{_label}}}>$"
-                ax[0].plot(dataframe[column], label=_label, lw=lw)
-                ax[len(column)].plot(dataframe[column], label=_label, lw=lw)
-
-            for _ax in ax:
-                _ax.legend(loc="upper left", bbox_to_anchor=(1.04, 1))
-                _ax.set_xlabel("Epoch", loc="right", fontsize=13)
-                _ax.set_ylabel("$<t_i>$", loc="top", fontsize=13)
-                _ax.yaxis.set_tick_params(which="both", right=True, direction="in")
-                _ax.xaxis.set_tick_params(which="both", top=True, direction="in")
-
-            prefix = [""] + [f"order_{i+1}" for i in range(self.derivation_order)]
-            prefix_node = "_".join(map(str, node)) if isinstance(node, tuple) else node
-            prefix = [f"node_{prefix_node}_{pre}" for pre in prefix]
-            for _fig, _pref in zip(fig, prefix):
-                save_item(_fig, path, prefix=_pref)
-
-            plt.close("all")
-
-    def plot_taylor_coefficients(
+    def calculate_tc(
         self,
         x_data,
         considered_variables_idx=None,
-        variable_names=None,
         derivation_order=2,
         eval_nodes="all",
         eval_only_max_node=False,
-        sorted=True,
-        number_of_tc_per_plot=20,
-        path="./coefficients.pdf",
+        **kwargs,
     ):
         """
-        Plot taylorcoefficients for current weights of the model.
+        calculate taylorcoefficients for current weights of the model.
 
         Args:
             x_data (torch.tensor): X data of shape (batch, features).
@@ -394,31 +389,25 @@ class TaylorAnalysis(object):
                                         otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
             sorted (bool): Sort the computed Taylor coefficients based on their numerical value.
-            number_of_tc_per_plot (int): number of drawn taylor coefficients inside one plot. If the number of
-                                         taylor coefficients is greater than number_of_tc_per_plot multiple
-                                         plots are created.
-            path (str) or (list[str]): /path/to/save/plot.pdf or ["/path/to/save/plot.pdf", "/path/to/save/plot.png"]
         """
-
-        variable_idx = considered_variables_idx or list(range(x_data.shape[1]))
-        variable_names = variable_names or [f"x_{idx}" for idx in variable_idx]
-        variable_mask = np.array(variable_idx)
+        self._variable_idx = considered_variables_idx or list(range(x_data.shape[1]))
+        self._variable_mask = np.array(self.variable_idx)
 
         _derivatives_calculation = self._get_derivatives(
             "calculation",
-            variable_idx=variable_idx,
+            variable_idx=self._variable_idx,
             derivation_order=derivation_order,
         )
         _derivatives_for_dataframe = self._get_derivatives(
             "dataframe",
-            variable_idx=variable_idx,
+            variable_idx=self._variable_idx,
             derivation_order=derivation_order,
         )
         _empty_dataframe = self._get_empty_checkpoints_dataframe(_derivatives_for_dataframe)
         if eval_nodes == "all" or isinstance(eval_nodes, int):
-            _checkpoints = {key: deepcopy(_empty_dataframe) for key in [eval_nodes]}
+            self._tc_point = {key: deepcopy(_empty_dataframe) for key in [eval_nodes]}
         elif isinstance(eval_nodes, (list, tuple)):
-            _checkpoints = {key: deepcopy(_empty_dataframe) for key in eval_nodes}
+            self._tc_point = {key: deepcopy(_empty_dataframe) for key in eval_nodes}
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
 
@@ -427,13 +416,13 @@ class TaylorAnalysis(object):
         except AttributeError:  # if not set before
             self.eval_max_only = eval_only_max_node
 
-        for node, _dataframe in _checkpoints.items():
+        for node, _dataframe in self._tc_point.items():
             self._tc_checkpoint(
                 x_data=x_data,
                 epoch=0,
                 dataframe=_dataframe,
-                variable_mask=variable_mask,
-                variable_idx=variable_idx,
+                variable_mask=self._variable_mask,
+                variable_idx=self._variable_idx,
                 derivatives_for_calculation=_derivatives_calculation,
                 node=node,
             )
@@ -443,79 +432,42 @@ class TaylorAnalysis(object):
         except AttributeError:  # derefernce it if it was not was set previously
             del self.eval_max_only
 
-        for node, _dataframe in _checkpoints.items():
-            _stacked_dataframe = pd.DataFrame()
+    def plot_taylor_coefficients(self, *args, **kwargs):
+        """
+        Plot taylorcoefficients for current weights of the model.
 
-            _stacked_dataframe["TC Index"] = _dataframe.columns
-            _stacked_dataframe["TC Variables"] = [tuple(np.array(variable_names)[np.array(idx)]) for idx in _dataframe.columns]
-            _stacked_dataframe["TC Value"] = _dataframe.values[0]
+        Args and Kwargs are passed to defined tc_plot_function.
+        """
+        if "x_data" in kwargs:
+            self.calculate_tc(x_data=kwargs.pop("x_data"), **kwargs)
+            for item in [
+                "considered_variables_idx",
+                "derivation_order",
+                "eval_nodes",
+                "eval_only_max_node",
+            ]:
+                try:
+                    kwargs.pop(item)
+                except KeyError:
+                    pass
+        self.tc_plot_function(self, *args, **kwargs)
 
-            if sorted:
-                _stacked_dataframe.sort_values(by="TC Value", ascending=False, inplace=True, key=abs)
+    def plot_checkpoints(self, *args, **kwargs):
+        """
+        Plot saved checkpoints with a given function.
 
-            prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
+        Args and Kwargs are passed to defined checkpoint_plot_function.
+        """
+        self.checkpoint_plot_function(self, *args, **kwargs)
 
-            _csv_path = path if isinstance(path, str) else path[0]
-            _csv_path = f"{os.path.splitext(_csv_path)[0]}.csv"
-
-            save_item(_stacked_dataframe, _csv_path, prefix=prefix)
-
-        for node, _dataframe in _checkpoints.items():
-
-            if sorted:
-                _dataframe.sort_values(by=0, axis=1, ascending=0, inplace=True, key=abs)
-
-            m, n = _dataframe.shape[1], number_of_tc_per_plot
-            splits = [np.arange(m)[i: i + n] for i in range(0, m, n)]
-
-            prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
-            directory, filename = tuple(os.path.split(path if isinstance(path, str) else path[0]))
-            filename = f"{prefix}_{os.path.splitext(filename)[0]}_combined.pdf"
-            combined_pdf = os.path.join(directory, filename)
-
-            with PdfPages(combined_pdf) as pdf:
-                figs = []
-                leftpads, rightpads = [], []
-                for split_idx, split in enumerate(splits):
-                    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-                    ylabels = []
-                    for idx, column in enumerate(_dataframe.columns[split][::-1]):
-                        _label = ",".join(np.array(variable_names)[np.array(column)])
-                        ylabels.append(f"$<t_{{{_label}}}>$")
-                        ax.plot(_dataframe.loc[0][column], idx, marker="+", color="black", markersize=10, markeredgewidth=markeredgewidth)
-
-                    ax.set_xlabel("$<t_i>$")
-                    ax.set_ylim(ax.get_ylim())
-                    if not self._apply_abs:
-                        xtick = abs(np.array(list(ax.get_xlim()))).max()
-                        xmargin = 2 * xtick * plt.margins()[1]
-                        ax.set_xlim(-xtick - xmargin, xtick + xmargin)
-                        ax.set_xticks([-xtick, 0, +xtick])
-                        ax.vlines(0, *ax.get_ylim(), alpha=0.125, color="grey", ls="-", lw=1)
-                    ax.set_yticks(list(range(idx + 1)))
-                    ax.set_yticklabels(ylabels, ha="right", rotation_mode="anchor")
-                    ax.grid(axis="y", alpha=0.25)
-
-                    plt.tight_layout()
-                    prefix = f'node_{"_".join(map(str, node)) if isinstance(node, tuple) else node}'
-                    postfix = f"{split_idx}" if len(splits) > 1 else None
-                    save_item(fig, path, prefix=prefix, postfix=postfix)
-                    figs.append(fig)
-                    leftpads.append(ax._originalPosition.get_points()[0][0])
-                    rightpads.append(ax._originalPosition.get_points()[1][0])
-                for fig in figs:
-                    fig.subplots_adjust(left=max(leftpads), right=min(rightpads))
-                    pdf.savefig(fig)
-                plt.close("all")
-
-    def save_checkpoints(self, path="./tc_checkpoints.csv"):
+    def save_tc_points(self, path="./tc_checkpoints.csv"):
         """
         Saves the checkpoints calculated during the training.
 
         Args:
             path (str): /path/to/save/tc.csv
         """
-        for key, dataframe in self._checkpoints.items():
+        for key, dataframe in self._tc_points.items():
             save_item(
                 item=dataframe,
                 path=path,
@@ -523,8 +475,12 @@ class TaylorAnalysis(object):
             )
 
     @property
-    def checkpoints(self):
-        return self._checkpoints
+    def tc_points(self):
+        return self._tc_points
+
+    @property
+    def tc_point(self):
+        return self._tc_point
 
     def __getattribute__(self, name):
         """

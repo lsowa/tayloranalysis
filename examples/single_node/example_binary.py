@@ -3,12 +3,15 @@ import time
 
 import torch
 from torch import nn
-
+import sys;sys.path.append("../..")
+import sys;sys.path.append(".")
+import sys;sys.path.append("..")
 from tayloranalysis.cls import TaylorAnalysis
 
 # load data
 
-data = pickle.load(open("../../data/binary/data.pickle", "rb"), encoding="latin-1")
+# data = pickle.load(open("../../data/binary/data.pickle", "rb"), encoding="latin-1")
+data = pickle.load(open("./data/binary/data.pickle", "rb"), encoding="latin-1")
 x_train = torch.tensor(data["x_train"], dtype=torch.float)
 y_train = torch.tensor(data["y_train"], dtype=torch.float)
 
@@ -85,14 +88,21 @@ x_test = torch.tensor(data["x_test"], dtype=torch.float).to(device)
 # plot taylorcoefficients after training
 
 model.plot_taylor_coefficients(
-    x_test,
+    # kwargs (!) passed to calculate_tc if 'model.calculate_tc' not called explicetly previously
+    x_data=x_test,
     considered_variables_idx=[0, 1],
-    variable_names=["x_1", "x_2"],
     derivation_order=3,
+    # plotting keargs
+    variable_names=["x_1", "x_2"],
+    sorted=True,
+    number_of_tc_per_plot=20,
     path=["./coefficients.pdf", "./coefficients.png"],
 )
 
 # plot saved checkpoints
 
-model.plot_checkpoints(path=["./tc_training.pdf", "./tc_training.png"])
-# model.save_checkpoints(path="./tc_checkpoints.csv")
+model.plot_checkpoints(
+    variable_names=["x_1", "x_2"],
+    path=["./tc_training.pdf", "./tc_training.png"],
+)
+# model.save_tc_points(path="./tc_checkpoints.csv")

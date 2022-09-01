@@ -2,9 +2,9 @@ import pickle
 import time
 
 import torch
+import sys;sys.path.append("../..")
+from tayloranalysis.cls import TaylorAnalysis
 from torch import nn
-
-from tayloranalysis import TaylorAnalysis
 
 # load data
 
@@ -89,16 +89,22 @@ x_test = torch.tensor(data["x_test"], dtype=torch.float).to(device)
 # plot taylorcoefficients after training
 
 model.plot_taylor_coefficients(
-    x_test,
+    # kwargs (!) passed to calculate_tc if 'model.calculate_tc' not called explicetly previously
+    x_data=x_test,
     considered_variables_idx=[0, 1],
-    variable_names=["x_1", "x_2"],
     derivation_order=3,
-    path=["./coefficients.pdf", "./coefficients.png"],
     eval_nodes=[0, 1, (0, 1), 2, "all"],  # single int or 'all' is also possible
     eval_only_max_node=False,
+    # plotting keargs
+    variable_names=["x_1", "x_2"],
+    sorted=True,
+    number_of_tc_per_plot=20,
+    path=["./coefficients.pdf", "./coefficients.png"],
 )
 
 # plot saved checkpoints
-
-model.plot_checkpoints(path=["./tc_training.pdf", "./tc_training.png"])
-# model.save_checkpoints(path="./tc_checkpoints.csv")
+model.plot_checkpoints(
+    variable_names=["x_1", "x_2"],
+    path=["./tc_training.pdf", "./tc_training.png"],
+)
+# model.save_tc_points(path="./tc_checkpoints.csv")
