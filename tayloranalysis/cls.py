@@ -385,13 +385,20 @@ class TaylorAnalysis(object):
             considered_variables_idx (list[int]): Contains the indices of variables according to which
                                                   the derivation is required. All variables are
                                                   considered, unless explicitly stated otherwise.
-            variable_names (list[str]): Contains the (LaTeX) type names for the plots. If not
-                                        otherwise specified defaults are used ["x_1", "x_2", ...].
             derivation_order (int): Highest order of derivatives.
-            sorted (bool): Sort the computed Taylor coefficients based on their numerical value.
+            eval_nodes (int or (list, tuple)[int, tuple, str] or str):
+                                        Compute Taylor Coefficients only based on the specified output node(s).
+                                        If eval_nodes is set to "all" than all output nodes
+                                        will be summed  and taken into account as one combined node.
+                                        If a summation over two or more nodes is needed the eval_node
+                                        have to be a list containing at least the tuple of nodes to be
+                                        summed over.
+            eval_only_max_node (bool): Compute Taylor Coefficients only based on the output node with
+                                        the highest value. This step is done based on all output nodes.
+
         """
         self._variable_idx = considered_variables_idx or list(range(x_data.shape[1]))
-        self._variable_mask = np.array(self.variable_idx)
+        self._variable_mask = np.array(self._variable_idx)
 
         _derivatives_calculation = self._get_derivatives(
             "calculation",
