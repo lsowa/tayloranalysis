@@ -36,17 +36,47 @@ def save_item(item, path, prefix=None, postfix=None):
             save_item(item=item, path=p, prefix=prefix, postfix=postfix)
 
 
-class TaylorAnalysis(object):
-    """
-    Class to wrap nn.Module for taylorcoefficient analysis.
+class BaseTaylorAnalysis(object):
+    """Class to wrap nn.Module for taylorcoefficient analysis. Base class for TaylorAnalysis. Use this class if you want to compute 
+        raw taylor coefficients or use your own plotting.
     """
 
-    def __init__(self, model):
+    def __init__(self, model, apply_abs=False, reduction=None, eval_only_max_node=False):
+        """
+        Args:
+            model (nn.Module): PyTorch model to wrap.
+            apply_abs (bool, optional): Specifies if the TCs should be computed as absolute values. Defaults to False.
+            reduction (str, optional): Specifies the reduction method. If set to 'mean', the mean value of the TC is returned, analogue for 'median'.
+                                        In any other case, no reduction is applied. Defaults to None.
+            eval_only_max_node (bool, optional): Compute Taylor Coefficients only based on the output node with
+                                        the highest value. This step is done based on all output nodes. Defaults to False.
+        """
         super().__init__()
         self.model = model
-        self._orders = {1: self._first_order, 2: self._second_order, 3: self._third_order}
+        self._apply_abs = apply_abs
+        self._reduction = reduction
+        self.eval_max_only = eval_only_max_node
 
-        self._apply_abs = False  # TODO: Find a context where this could be set?
+    def _reduce(self, data):
+        """Compute abs and mean of taylorcoefficients if self._apply_abs is set, and only the mean otherwise.
+
+        Args:
+            data (torch.tensor): tensor with taylorcoefficients of shape (batch, features)
+
+        Returns:
+            numpy.array: Array means of taylorcoefficients.
+        """
+        if self._apply_abs:
+            data = torch.abs(data)
+            
+        if self._reduction == 'mean':
+            data = data.mean(axis=0)
+        elif self._reduction == 'median':
+            data = data.median(axis=0)
+        # else: no reduction
+        
+        return data.cpu().detach().numpy()
+
 
     def _node_selection(self, pred, node=None):
         """In case of a multiclassification, selects a corresponding class (node) and, if
@@ -82,25 +112,13 @@ class TaylorAnalysis(object):
 
         return pred
 
-    def _abs_mean(self, data):
-        """Compute abs and mean of taylorcoefficients if self._apply_abs is set, and only the mean otherwise.
 
-        Args:
-            data (torch.tensor): tensor with taylorcoefficients of shape (batch, features)
-
-        Returns:
-            numpy.array: Array means of taylorcoefficients.
-        """
-        if self._apply_abs:
-            data = torch.abs(data)
-        data = data.mean(axis=0).cpu().detach().numpy()
-        return data
-
-    def _first_order(self, x_data, **kwargs):
+    def first_order(self, x_data, **kwargs):
         """Compute first order taylorcoefficients.
 
         Args:
             x_data (torch.tensor): X data of shape (batch, features).
+            node (int, str, tuple[int]): class selection
 
         Returns:
             torch.tensor: First order taylorcoefficients (batch, features).
@@ -112,14 +130,16 @@ class TaylorAnalysis(object):
         pred = self._node_selection(pred, **kwargs)
         # first order grads
         gradients = grad(pred, x_data)
-        return self._abs_mean(gradients[0])
+        return self._reduce(gradients[0])
 
-    def _second_order(self, x_data, ind_i, **kwargs):
+
+    def second_order(self, x_data, ind_i, **kwargs):
         """Compute second order taylorcoefficients. The model is first derivated according to the ind_i-th feature and second to all others.
 
         Args:
             x_data (torch.tensor): X data (batch, features).
             ind_i (int): Feature for the first derivative.
+            node (int, str, tuple[int]): class selection
 
         Returns:
             torch.tensor: Second order derivatives according to ind_i and all other input variables (batch, feature).
@@ -141,9 +161,10 @@ class TaylorAnalysis(object):
         masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
         masked_factor = (masked_factor != ind_i) + 1
         gradients *= masked_factor
-        return self._abs_mean(gradients)
+        return self._reduce(gradients)
 
-    def _third_order(self, x_data, ind_i, ind_j, **kwargs):
+
+    def third_order(self, x_data, ind_i, ind_j, **kwargs):
         """Compute third order taylorcoefficients. The model is derivated to the ind_i-th feature,
             the ind_j-th feature and third to all other features.
 
@@ -151,6 +172,7 @@ class TaylorAnalysis(object):
             x_data (torch.tensor): X data (batch, features).
             ind_i (int): Feature for the first derivative.
             ind_j (int): Feature for the second derivative.
+            node (int, str, tuple[int]): class selection
 
         Returns:
             torch.tensor: Third order derivatives according to ind_i, ind_j and all other input features (batch, feature).
@@ -183,7 +205,18 @@ class TaylorAnalysis(object):
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
-        return self._abs_mean(gradients)
+        return self._reduce(gradients)
+
+
+
+class TaylorAnalysis(BaseTaylorAnalysis):
+    """
+    Framework for BaseTaylorAnalysis with checkpoints and plotting.
+    """
+    def __init__(self, model, apply_abs = False, reduction='mean'):
+        super().__init__(model, apply_abs, reduction)
+        self._orders = {1: self.first_order, 2: self.second_order, 3: self.third_order}
+
 
     def _get_derivatives(self, option, variable_idx, derivation_order, **kwargs):
         """
@@ -209,6 +242,7 @@ class TaylorAnalysis(object):
             _order += 1
         return _derivatives
 
+
     def _get_empty_checkpoints_dataframe(self, derivatives):
         """
         Creates an empty dataframe for the checkpoints
@@ -223,6 +257,7 @@ class TaylorAnalysis(object):
         _df.set_index("Epoch", inplace=True)
         _df = _df.astype(float)
         return _df
+
 
     def _tc_checkpoint(
         self,
@@ -258,6 +293,7 @@ class TaylorAnalysis(object):
             if any(mask):
                 dataframe.loc[epoch, np.array(nplet)[mask]] = self._orders[len(item) + 1](x_data, *item, **kwargs)[variable_mask][mask]
 
+
     def tc_checkpoint(self, x_data, epoch):
         """
         Compute and save taylorcoefficients to plot and save them later.
@@ -279,6 +315,7 @@ class TaylorAnalysis(object):
                 derivatives_for_calculation=self.derivatives_for_calculation,
                 node=node,
             )
+
 
     def setup_tc_checkpoints(
         self,
@@ -338,6 +375,7 @@ class TaylorAnalysis(object):
         else:
             raise Exception("Provide 'eval_nodes' in form of an int, 'all' or a list of form i.e. [0, (0, 1), 'all']")
 
+
     def plot_checkpoints(self, path="./tc_training.pdf"):
         """
         Plot saved checkpoints.
@@ -369,6 +407,7 @@ class TaylorAnalysis(object):
                 save_item(_fig, path, prefix=_pref)
 
             plt.close("all")
+
 
     def plot_taylor_coefficients(
         self,
@@ -508,6 +547,7 @@ class TaylorAnalysis(object):
                     pdf.savefig(fig)
                 plt.close("all")
 
+
     def save_checkpoints(self, path="./tc_checkpoints.csv"):
         """
         Saves the checkpoints calculated during the training.
@@ -522,9 +562,11 @@ class TaylorAnalysis(object):
                 prefix=f'node_{"_".join(map(str, key)) if isinstance(key, tuple) else key}',
             )
 
+
     @property
     def checkpoints(self):
         return self._checkpoints
+
 
     def __getattribute__(self, name):
         """
@@ -536,14 +578,14 @@ class TaylorAnalysis(object):
         except AttributeError:
             return getattr(self.model, name)
 
+
     def __call__(self, *args, **kwargs):
         """
         Method, mainly for the forward function of the wrapped model.
         """
         return self.model.__call__(*args, **kwargs)
 
+
     def __str__(self):
         return self.model.__str__()
 
-
-# Tests

@@ -77,6 +77,9 @@ Note that your data should be of shape (batch, features). `names` should be a li
 
 ![Plotted Checkpoints](examples/single_node/node_all__tc_training.png)
 
+## Customization for your own requirements
+
+You need more flexibility for a special setup? Have a look at the BaseTaylorAnalysis class. This provides only the fundamental TC computation, so you can build your setup around it.
 
 ## Authors
 - [Lars Sowa](https://github.com/lsowa)
