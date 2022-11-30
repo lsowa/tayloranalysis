@@ -114,14 +114,14 @@ class BaseTaylorAnalysis(object):
 
 
     def first_order(self, x_data, **kwargs):
-        """Compute first order taylorcoefficients.
+        """Compute all first order taylorcoefficients.
 
         Args:
             x_data (torch.tensor): X data of shape (batch, features).
             node (int, str, tuple[int]): class selection
 
         Returns:
-            torch.tensor: First order taylorcoefficients (batch, features).
+            torch.tensor: First order taylorcoefficients (batch, feature).
         """
         x_data.requires_grad = True
         self.model.zero_grad()
@@ -134,7 +134,8 @@ class BaseTaylorAnalysis(object):
 
 
     def second_order(self, x_data, ind_i, **kwargs):
-        """Compute second order taylorcoefficients. The model is first derivated according to the ind_i-th feature and second to all others.
+        """Compute second order taylorcoefficients according to ind_i and all other input variables. 
+        The model is first derivated according to the ind_i-th feature and second to all others.
 
         Args:
             x_data (torch.tensor): X data (batch, features).
@@ -165,8 +166,8 @@ class BaseTaylorAnalysis(object):
 
 
     def third_order(self, x_data, ind_i, ind_j, **kwargs):
-        """Compute third order taylorcoefficients. The model is derivated to the ind_i-th feature,
-            the ind_j-th feature and third to all other features.
+        """Compute third order taylorcoefficients according to ind_i, ind_j and all other input features. 
+        The model is derivated to the ind_i-th feature, the ind_j-th feature and third to all other features.
 
         Args:
             x_data (torch.tensor): X data (batch, features).
