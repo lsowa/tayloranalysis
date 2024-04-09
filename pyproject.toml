@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "tayloranalysis"
+version = "0.2.0"
+description = "Taylorcoefficient Analysis for pytorch models"
+authors = ["Artur Monsch <artur.monsch@kit.edu>", "Lars Sowa <lars.sowa@kit.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.group.dev.dependencies]
+torch = ">=1.12.0"
+matplotlib = ">=3.0.0"
+numpy = ">=1.22.3"
+scikit-learn = ">=1.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
