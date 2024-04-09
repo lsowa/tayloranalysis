@@ -1,1 +1,1 @@
-from .cls import TaylorAnalysis
+from model_extension import extend_model, TaylorCoefficientBase
