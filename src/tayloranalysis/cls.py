@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch.autograd import grad
+import pandas as pd
 
 
 class BaseTaylorAnalysis(object):
@@ -147,7 +148,7 @@ class BaseTaylorAnalysis(object):
         gradients *= masked_factor.to(gradients.device)
         return self._reduce(gradients[:, ind_k])
 
-    def get_tc(self, x_data, *indices, **kwargs):
+    def _calculate_tc(self, x_data, *indices, **kwargs):
         if len(indices) == 1:
             return self._first_order(x_data, *indices, **kwargs)
         elif len(indices) == 2:
@@ -158,3 +159,12 @@ class BaseTaylorAnalysis(object):
             raise ValueError(
                 "Only first, second and third order taylorcoefficients are supported."
             )
+
+    def get_tc(self, x_data, ind_list, **kwargs):
+        out = {}
+        for ind in ind_list:
+            if isinstance(ind, int):
+                ind = [ind]
+            col_name = str(ind).replace(" ", "").replace("[", "").replace("]", "")
+            out[col_name] = float(self._calculate_tc(x_data, *ind, **kwargs))
+        return out
