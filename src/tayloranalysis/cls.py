@@ -53,7 +53,7 @@ class BaseTaylorAnalysis(object):
 
         return pred
 
-    def first_order(self, x_data, **kwargs):
+    def _first_order(self, x_data, ind_i, **kwargs):
         """Compute all first order taylorcoefficients.
 
         Args:
@@ -70,9 +70,10 @@ class BaseTaylorAnalysis(object):
         pred = self._node_selection(pred, **kwargs)
         # first order grads
         gradients = grad(pred, x_data)
-        return self._reduce(gradients[0])
+        gradients = gradients[0][:, ind_i]
+        return self._reduce(gradients)
 
-    def second_order(self, x_data, ind_i, **kwargs):
+    def _second_order(self, x_data, ind_i, ind_j, **kwargs):
         """Compute second order taylorcoefficients according to ind_i and all other input variables.
         The model is first derivated according to the ind_i-th feature and second to all others.
 
@@ -101,9 +102,9 @@ class BaseTaylorAnalysis(object):
         masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
         masked_factor = (masked_factor != ind_i) + 1
         gradients *= masked_factor
-        return self._reduce(gradients)
+        return self._reduce(gradients[:, ind_j])
 
-    def third_order(self, x_data, ind_i, ind_j, **kwargs):
+    def _third_order(self, x_data, ind_i, ind_j, ind_k, **kwargs):
         """Compute third order taylorcoefficients according to ind_i, ind_j and all other input features.
         The model is derivated to the ind_i-th feature, the ind_j-th feature and third to all other features.
 
@@ -144,4 +145,16 @@ class BaseTaylorAnalysis(object):
         masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
 
         gradients *= masked_factor.to(gradients.device)
-        return self._reduce(gradients)
+        return self._reduce(gradients[:, ind_k])
+
+    def get_tc(self, x_data, *indices, **kwargs):
+        if len(indices) == 1:
+            return self._first_order(x_data, *indices, **kwargs)
+        elif len(indices) == 2:
+            return self._second_order(x_data, *indices, **kwargs)
+        elif len(indices) == 3:
+            return self._third_order(x_data, *indices, **kwargs)
+        else:
+            raise ValueError(
+                "Only first, second and third order taylorcoefficients are supported."
+            )

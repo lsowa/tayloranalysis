@@ -38,9 +38,4 @@ def extend_model(
         model._reduce = MethodType(_reduce_function, model)
         model._eval_max_only = eval_max_only
         model._apply_abs = apply_abs
-
-        # model.first_order = MethodType(
-        #    tayloranalysis.BaseTaylorAnalysis.first_order, model
-        # )
-
         return model
