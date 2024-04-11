@@ -10,10 +10,21 @@ class BaseTaylorAnalysis(object):
     """
 
     def __init__(self, eval_max_only: bool = True, apply_abs: bool = False):
+        """Initializes the BaseTaylorAnalysis class.
+        Args:
+            eval_max_only (bool, optional): Compute Taylor Coefficients only based on the output node with
+                                        the highest value. This step is done based on all output nodes. Defaults to True.
+            apply_abs (bool, optional): Specifies if the TCs should be computed as absolute values. Defaults to False.
+        """
         self._eval_max_only = eval_max_only
         self._apply_abs = apply_abs
 
-    def _reduce(data):
+    def _reduce(x_data):
+        """reduce method to be implemented by the user.
+
+        Args:
+            x_data (_type_): x_data of shape (batch, features).
+        """
         pass
 
     def _node_selection(self, pred, node=None):
@@ -59,6 +70,7 @@ class BaseTaylorAnalysis(object):
 
         Args:
             x_data (torch.tensor): X data of shape (batch, features).
+            ind_i (int): Feature for the first derivative.
             node (int, str, tuple[int]): class selection
 
         Returns:
@@ -81,6 +93,7 @@ class BaseTaylorAnalysis(object):
         Args:
             x_data (torch.tensor): X data (batch, features).
             ind_i (int): Feature for the first derivative.
+            ind_j (int): Feature for the second derivative.
             node (int, str, tuple[int]): class selection
 
         Returns:
@@ -113,6 +126,7 @@ class BaseTaylorAnalysis(object):
             x_data (torch.tensor): X data (batch, features).
             ind_i (int): Feature for the first derivative.
             ind_j (int): Feature for the second derivative.
+            ind_k (int): Feature for the third derivative.
             node (int, str, tuple[int]): class selection
 
         Returns:
@@ -149,6 +163,14 @@ class BaseTaylorAnalysis(object):
         return self._reduce(gradients[:, ind_k])
 
     def _calculate_tc(self, x_data, *indices, **kwargs):
+        """function to calculate the taylorcoefficients based on the given indices.
+
+        Args:
+            x_data (torch.tensor): X data (batch, features).
+
+        Returns:
+            torch.tensor: reduced taylorcoefficient for given indices.
+        """
         if len(indices) == 1:
             return self._first_order(x_data, *indices, **kwargs)
         elif len(indices) == 2:
@@ -161,6 +183,15 @@ class BaseTaylorAnalysis(object):
             )
 
     def get_tc(self, x_data, ind_list, **kwargs):
+        """function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
+
+        Args:
+            x_data (torch.tensor): X data (batch, features).
+            ind_list (list of lists): list of indices to compute the taylorcoefficients for.
+
+        Returns:
+            dict: dictionary with the taylorcoefficients for the given indices.
+        """
         out = {}
         for ind in ind_list:
             if isinstance(ind, int):

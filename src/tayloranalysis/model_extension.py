@@ -10,6 +10,18 @@ def extend_model(
     eval_max_only: bool = True,
     apply_abs: bool = False,
 ):
+    """function to extend a model with tayloranalysis functionality. This applies either to a class or an object.
+
+    Args:
+        model (Union[object, type]): model to be extended.
+        reduce_function (Callable): function to reduce the taylorcoefficients to
+            one value. This function has to be defined by the user.
+        eval_max_only (bool, optional): Specifies if the TCs should be computed based on
+            the highest value. This step is done based on all output nodes. Defaults to True.
+        apply_abs (bool, optional): Specifies if the TCs should be computed as absolute values. Defaults to False.
+    Returns:
+        Union[object, type]: extended model.
+    """
 
     if isinstance(model, type):  # model is a class/not initialized
         # define wrapper class
