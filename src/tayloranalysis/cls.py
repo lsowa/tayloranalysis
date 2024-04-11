@@ -182,12 +182,13 @@ class BaseTaylorAnalysis(object):
                 "Only first, second and third order taylorcoefficients are supported."
             )
 
-    def get_tc(self, x_data, ind_list, **kwargs):
+    def get_tc(self, x_data, ind_list, feature_names=None, **kwargs):
         """function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
         Args:
             x_data (torch.tensor): X data (batch, features).
             ind_list (list of lists): list of indices to compute the taylorcoefficients for.
+            feature_names (list, optional): list of feature names to create dictionary keys. Defaults to None.
 
         Returns:
             dict: dictionary with the taylorcoefficients for the given indices.
@@ -196,6 +197,12 @@ class BaseTaylorAnalysis(object):
         for ind in ind_list:
             if isinstance(ind, int):
                 ind = [ind]
-            col_name = str(ind).replace(" ", "").replace("[", "").replace("]", "")
+
+            # create column name
+            if feature_names is not None:
+                col_name = ",".join([feature_names[i] for i in ind])
+            else:
+                col_name = str(ind).replace(" ", "").replace("[", "").replace("]", "")
+
             out[col_name] = float(self._calculate_tc(x_data, *ind, **kwargs))
         return out
