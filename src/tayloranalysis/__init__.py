@@ -1,2 +1,2 @@
-from model_extension import extend_model
-from cls import BaseTaylorAnalysis
+from .cls import *
+from .model_extension import *

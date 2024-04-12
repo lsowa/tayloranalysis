@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch.autograd import grad
-import pandas as pd
 
 
 class BaseTaylorAnalysis(object):
