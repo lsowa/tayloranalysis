@@ -71,8 +71,11 @@ plt.clf()
 model.cpu()
 tc_dict = model.get_tc(x_test, combinations, feature_names=names)
 
+# plot tcs after training
 labels = list(tc_dict.keys())
 plt.title("Taylor Coefficients after Training for given Features")
 plt.plot(labels, list(tc_dict.values()), "+", color="black", markersize=10)
+plt.xlabel("Taylor Coefficient")
 plt.ylabel("Taylor Coefficient Value")
 plt.savefig("taylor_coefficients.png", bbox_inches="tight")
+plt.clf()

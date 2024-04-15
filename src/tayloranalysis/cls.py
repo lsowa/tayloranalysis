@@ -194,8 +194,8 @@ class BaseTaylorAnalysis(object):
         """
         out = {}
         for ind in ind_list:
-            if isinstance(ind, int):
-                ind = [ind]
+            if not isinstance(ind, list, tuple):
+                raise ValueError("Ind_list must be a list of lists!")
 
             # create column name
             if feature_names is not None:
