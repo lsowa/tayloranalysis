@@ -1,8 +1,9 @@
 import torch
 import matplotlib.pyplot as plt
+import itertools
 
 from torch import nn
-from helpers import gen_data, Mlp, plot_data, generate_combinations
+from helpers import gen_data, Mlp, plot_data
 from tayloranalysis.model_extension import extend_model
 from sklearn.model_selection import train_test_split
 
@@ -35,13 +36,13 @@ y_train = y_train.to(device)
 model.to(device)
 
 # specify the features for which the taylor coefficients should be calculated
-# feel free to copy the generate_combinations function from the helpers.py file
-combinations = (
-    [0, 1]  # 1st order taylor coefficients
-    + generate_combinations(numbers=[0, 1], length=2)  # 2nd order taylor coefficients
-    + [[0, 1, 1]]  # exemplary 3rd order taylor coefficient
-)
+combinations = [[0], [1]]  # 1st order taylor coefficients
+combinations += [
+    list(i) for i in itertools.permutations([0, 1], 2)  # 2nd order taylor coefficients
+]
+combinations += [[0, 1, 1]]  # exemplary 3rd order taylor coefficient
 
+print(combinations)
 tcs_training = []
 x_train.requires_grad = True
 for epoch in range(250):
