@@ -64,7 +64,7 @@ plt.plot(tcs_training, label=labels)
 plt.xlabel("Epoch")
 plt.ylabel("Taylor Coefficient Value")
 plt.legend()
-plt.savefig("training_evolution.png")
+plt.savefig("training_evolution.png", bbox_inches="tight")
 plt.clf()
 
 # get a set of target taylor coefficients after training
