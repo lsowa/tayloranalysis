@@ -171,15 +171,19 @@ class BaseTaylorAnalysis(object):
             torch.tensor: reduced taylorcoefficient for given indices.
         """
         if len(indices) == 1:
-            return self._first_order(x_data, *indices, **kwargs)
+            out = self._first_order(x_data, *indices, **kwargs)
         elif len(indices) == 2:
-            return self._second_order(x_data, *indices, **kwargs)
+            out = self._second_order(x_data, *indices, **kwargs)
         elif len(indices) == 3:
-            return self._third_order(x_data, *indices, **kwargs)
+            out = self._third_order(x_data, *indices, **kwargs)
         else:
             raise ValueError(
                 "Only first, second and third order taylorcoefficients are supported."
             )
+            assert (
+                out.numel() == 1
+            ), "Output must be a 1D tensor! Do you apply a reduction function?"
+        return out
 
     def get_tc(self, x_data, ind_list, feature_names=None, **kwargs):
         """function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
@@ -194,14 +198,12 @@ class BaseTaylorAnalysis(object):
         """
         out = {}
         for ind in ind_list:
-            if not isinstance(ind, list, tuple):
+            if not isinstance(ind, (list, tuple)):
                 raise ValueError("Ind_list must be a list of lists!")
-
             # create column name
             if feature_names is not None:
                 col_name = ",".join([feature_names[i] for i in ind])
             else:
                 col_name = str(ind).replace(" ", "").replace("[", "").replace("]", "")
-
             out[col_name] = float(self._calculate_tc(x_data, *ind, **kwargs))
         return out
