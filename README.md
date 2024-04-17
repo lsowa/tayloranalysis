@@ -3,83 +3,41 @@ This is a pytorch implementation of the Paper
 ["Identifying the relevant dependencies of the neural network response on characteristics of the input space"](https://arxiv.org/abs/1803.08782)
 (S. Wunsch, R. Friese, R. Wolf, G. Quast).
 
-As explained in the paper, the method computes the averaged taylorcoefficients of a taylored model function. These coefficients are noted as <img src="https://render.githubusercontent.com/render/math?math=<t_i>">.
+As explained in the paper, the method computes the taylorcoefficients of a taylored model function. To allow for more flexibility, this package requieres manual specification of the reduction function.
 
-This is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
+The analysis of taylorcoefficients is the optimal method to identify not only first order feature importance, but also higher order importance (i.e. the importance of combined features).
 
-This module can be applied to any differentiable pytorch model with a scalar output.
+This module can be applied to any differentiable pytorch model.
 
 ## Installation
-```
-pip install git+https://github.com/lsowa/tayloranalysis.git
-```
-or from ETP gitlab
+
 ```
 pip install git+https://gitlab.etp.kit.edu/lsowa/tayloranalysis.git
 ```
 
 ## Usage
 
-Setup your data and model, all you have to do is to wrap your model with the `TaylorAnalysis` class. A full example is shown [here](example/example.py).
+Import tayloranalysis
 ```
-...
-from tayloranalysis import TaylorAnalysis
-...
-
-model = Mlp()
-model = TaylorAnalysis(model)
-
-model.setup_tc_checkpoints(
-    number_of_variables_in_data=2,    # dimension of your model input
-    considered_variables_idx=[0, 1],  # variables to be tracked
-    variable_names=["x_1", "x_2"],    # their representative name (plotting)
-    derivation_order=3,               # calculates derivation up to 3, including 3
-    # In case of multiclassification: granular selection is possible
-    eval_nodes=[0, 1, (0,1), "all"],  # compute TCs based on specified output node(s)
-    eval_only_max_node=True,          # compute TCs based on the output node with the highest value only?
-)
-
-...
-
-for epoch in range(200):
-    ...
-
-    # save current taylorcoefficients
-    model.tc_checkpoint(x_train, epoch=epoch) # x_train shape is as usual: (batch, features)
-
-...
-
-# plot saved checkpoints
-model.plot_checkpoints(path="./tc_training.pdf")
-
-
-# plot taylorcoefficients after training
-# options similar to setup_tc_checkpoints
-model.plot_taylor_coefficients(
-    x_test,
-    considered_variables_idx=[0, 1],
-    variable_names=["x_1", "x_2"],
-    derivation_order=3,
-    path="./coefficients.pdf",
-    # In case of multiclassification: granular selection is possible
-    eval_nodes=[0, 1, (0,1), "all"],
-    eval_only_max_node=False,
-)
-
-
-
+import tayloranalysis as ta
 ```
-Note that your data should be of shape (batch, features). `names` should be a list of all features in the same order as in the feature dimension of your data.
+Wrap either an already initialized PyTorch class instance or the class itself to extend it with the tayloranalysis functionality and choose the reduction function to be used.
+```
+model = ...
+model = extend_model(model, reduce_function=torch.mean)
+```
+Compute taylorcoefficients: for example $<t_{0}>$, $<t_{0,1}>$ for a given sample x_test
+```
+combinations = [[0], [0,1]] 
+x_test = torch.randn(#batch, #features)
+tc_dict = model.get_tc(x_test, combinations)
+```
+The output is a dict containing the taylorcoefficients $<t_{0}>$, $<t_{0,1}>$.
 
-## Resluts
+## Maximal flexibility
 
-![Plottet Taylorcoefficients after Training](examples/single_node/node_all_coefficients.png "test")
+This package is designed in a way to allow for maximal flexibility. While the reduction function has to be specified (e.g. mean, median, absolute values etc.) the visualization is up to the user. At this point you should have a look at our [example](example/example.py).
 
-![Plotted Checkpoints](examples/single_node/node_all__tc_training.png)
-
-## Customization for your own requirements
-
-You need more flexibility for a special setup? Have a look at the BaseTaylorAnalysis class. This provides only the fundamental TC computation, so you can build your setup around it.
 
 ## Authors
 - [Lars Sowa](https://github.com/lsowa)
