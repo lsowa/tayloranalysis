@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 # load data and setup data
 names = ["x1", "x2"]
-x, y = gen_data(5000)
+x, y = gen_data(500)
 plot_data(x, y)  # have a look at the data!
 
 x_test, x_train, y_test, y_train = train_test_split(x, y, test_size=0.3)

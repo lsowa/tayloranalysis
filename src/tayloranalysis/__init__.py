@@ -1,2 +1,1 @@
-from .cls import *
-from .model_extension import *
+from .model_extension import extend_model

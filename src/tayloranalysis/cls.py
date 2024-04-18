@@ -1,24 +1,36 @@
 import numpy as np
 import torch
+
+from collections import Counter
+from math import factorial
 from torch.autograd import grad
+from abc import abstractmethod, ABC
 
 
-class BaseTaylorAnalysis(object):
+def get_factorial_factors(*indices):
+    # copmpute the Prod_n^len(indices) 1/n!
+    factor = 1.0
+    counts = Counter(indices)
+    for nth_variable, counts in counts.items():
+        factor *= factorial(counts)
+    return 1.0 / factor
+
+
+class BaseTaylorAnalysis(ABC):
     """Class to wrap nn.Module for taylorcoefficient analysis. Base class for TaylorAnalysis. Use this class if you want to compute
     raw taylor coefficients or use your own plotting.
     """
 
-    def __init__(self, eval_max_only: bool = True, apply_abs: bool = False):
+    def __init__(self, eval_max_node_only: bool = True):
         """Initializes the BaseTaylorAnalysis class.
         Args:
-            eval_max_only (bool, optional): Compute Taylor Coefficients only based on the output node with
+            eval_max_node_only (bool, optional): Compute Taylor Coefficients only based on the output node with
                                         the highest value. This step is done based on all output nodes. Defaults to True.
-            apply_abs (bool, optional): Specifies if the TCs should be computed as absolute values. Defaults to False.
         """
-        self._eval_max_only = eval_max_only
-        self._apply_abs = apply_abs
+        self._eval_max_node_only = eval_max_node_only
 
-    def _reduce(x_data):
+    @abstractmethod
+    def reduce(x_data):
         """reduce method to be implemented by the user.
 
         Args:
@@ -29,7 +41,7 @@ class BaseTaylorAnalysis(object):
     def _node_selection(self, pred, node=None):
         """In case of a multiclassification, selects a corresponding class (node) and, if
            necessary, masks individual entries (sets them to 0.0), if they are not
-           maximal, i.e. not sorted into the corresponding class (self._eval_max_only).
+           maximal, i.e. not sorted into the corresponding class (self._eval_max_node_only).
 
         Args:
             pred (torch.tensor): X data of shape (batch, features).
@@ -43,9 +55,9 @@ class BaseTaylorAnalysis(object):
             # sum up everything
             return pred.sum()
 
-        # first step: masking non max values if self._eval_max_only is set
+        # first step: masking non max values if self._eval_max_node_only is set
         # and keeping only the output nodes with the highest value
-        if self._eval_max_only:
+        if self._eval_max_node_only:
             pred_view = pred.view(-1, pred.shape[-1])
             pred_cat = (
                 (pred_view == pred_view.max(dim=1, keepdim=True)[0])
@@ -64,6 +76,7 @@ class BaseTaylorAnalysis(object):
 
         return pred
 
+    @torch.enable_grad
     def _first_order(self, x_data, ind_i, **kwargs):
         """Compute all first order taylorcoefficients.
 
@@ -78,13 +91,14 @@ class BaseTaylorAnalysis(object):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self.__call__(x_data)
+        pred = self(x_data)
         pred = self._node_selection(pred, **kwargs)
         # first order grads
         gradients = grad(pred, x_data)
         gradients = gradients[0][:, ind_i]
-        return self._reduce(gradients)
+        return self.reduce(gradients)
 
+    @torch.enable_grad
     def _second_order(self, x_data, ind_i, ind_j, **kwargs):
         """Compute second order taylorcoefficients according to ind_i and all other input variables.
         The model is first derivated according to the ind_i-th feature and second to all others.
@@ -101,7 +115,7 @@ class BaseTaylorAnalysis(object):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self.__call__(x_data)
+        pred = self(x_data)
         pred = self._node_selection(pred, **kwargs)
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -109,14 +123,11 @@ class BaseTaylorAnalysis(object):
         # second order gradients
         gradients = grad(gradients[ind_i], x_data)
         gradients = gradients[0]
-        # factor for all second order taylor terms
-        gradients /= 2.0
-        # factor for terms who occure two times in the second order (e.g. d/dx1x2 and d/dx2x1)
-        masked_factor = torch.tensor(range(gradients.shape[1]), device=gradients.device)
-        masked_factor = (masked_factor != ind_i) + 1
-        gradients *= masked_factor
-        return self._reduce(gradients[:, ind_j])
+        # factor for second order taylor terms
+        gradients *= get_factorial_factors(ind_i, ind_j)
+        return self.reduce(gradients[:, ind_j])
 
+    @torch.enable_grad
     def _third_order(self, x_data, ind_i, ind_j, ind_k, **kwargs):
         """Compute third order taylorcoefficients according to ind_i, ind_j and all other input features.
         The model is derivated to the ind_i-th feature, the ind_j-th feature and third to all other features.
@@ -134,7 +145,7 @@ class BaseTaylorAnalysis(object):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self.__call__(x_data)
+        pred = self(x_data)
         pred = self._node_selection(pred, **kwargs)
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -146,20 +157,8 @@ class BaseTaylorAnalysis(object):
         gradients = grad(gradients[ind_j], x_data)
         gradients = gradients[0]
         # factor for all third order taylor terms
-        gradients /= 6.0
-        # factor for all terms that occur three times (e.g. d/dx1x2x2 and d/dx2x1x2 and d/dx2x2x1)
-        masked_factor = np.array(range(gradients.shape[1]))
-
-        # check for derivatives with same variables
-        masked_factor = (
-            torch.tensor(masked_factor == ind_j, dtype=int)
-            + torch.tensor(masked_factor == ind_i, dtype=int)
-            + torch.tensor([ind_j == ind_i] * masked_factor.shape[0], dtype=int)
-        )
-        masked_factor = (masked_factor == 1) * 2 + 1  # if variable pair is identical ..
-
-        gradients *= masked_factor.to(gradients.device)
-        return self._reduce(gradients[:, ind_k])
+        gradients *= get_factorial_factors(ind_i, ind_j, ind_k)
+        return self.reduce(gradients[:, ind_k])
 
     def _calculate_tc(self, x_data, *indices, **kwargs):
         """function to calculate the taylorcoefficients based on the given indices.
@@ -177,12 +176,12 @@ class BaseTaylorAnalysis(object):
         elif len(indices) == 3:
             out = self._third_order(x_data, *indices, **kwargs)
         else:
-            raise ValueError(
+            raise NotImplementedError(
                 "Only first, second and third order taylorcoefficients are supported."
             )
-            assert (
-                out.numel() == 1
-            ), "Output must be a 1D tensor! Do you apply a reduction function?"
+        assert (
+            out.numel() == 1
+        ), "Output must be a 1D tensor! Do you apply a reduction function?"
         return out
 
     def get_tc(self, x_data, ind_list, feature_names=None, **kwargs):
@@ -190,7 +189,7 @@ class BaseTaylorAnalysis(object):
 
         Args:
             x_data (torch.tensor): X data (batch, features).
-            ind_list (list of lists): list of indices to compute the taylorcoefficients for.
+            ind_list (list of lists or list of tuples): list of indices to compute the taylorcoefficients for.
             feature_names (list, optional): list of feature names to create dictionary keys. Defaults to None.
 
         Returns:
@@ -199,11 +198,18 @@ class BaseTaylorAnalysis(object):
         out = {}
         for ind in ind_list:
             if not isinstance(ind, (list, tuple)):
-                raise ValueError("Ind_list must be a list of lists!")
+                raise ValueError("Ind_list must be a list of lists, or list of tuples!")
             # create column name
             if feature_names is not None:
                 col_name = ",".join([feature_names[i] for i in ind])
             else:
-                col_name = str(ind).replace(" ", "").replace("[", "").replace("]", "")
+                col_name = (
+                    str(ind)
+                    .replace(" ", "")
+                    .replace("[", "")
+                    .replace("]", "")
+                    .replace("(", "")
+                    .replace(")", "")
+                )
             out[col_name] = float(self._calculate_tc(x_data, *ind, **kwargs))
         return out
