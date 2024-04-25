@@ -97,8 +97,8 @@ def plot_data(x, y):
         )
     plt.grid()
     plt.title("Data")
-    plt.savefig("data.png", bbox_inches="tight")
-    plt.clf()
+    # plt.savefig("data.png", bbox_inches="tight")
+    # plt.clf()
 
 
 class Mlp(nn.Module):
@@ -124,3 +124,11 @@ class Mlp(nn.Module):
         x = x.squeeze(-1)  # new x: (batch)
         x = torch.sigmoid(x)
         return x
+
+
+def get_feature_combis(feature_list, combination_list):
+    feature_combinations = []
+    for combination in combination_list:
+        feature_combi = tuple(feature_list[val] for val in combination)
+        feature_combinations.append(feature_combi)
+    return feature_combinations

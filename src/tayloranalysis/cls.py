@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 from collections import Counter
@@ -252,12 +251,12 @@ class BaseTaylorAnalysis(ABC):
 
         Args:
             x_data (torch.Tensor): X data of shape (batch, features).
-            ind_list (List): List of indices for which the taylorcoefficients should be computed.
+            ind_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
             node (Int, optional): Node selection for evaluation. Defaults to None.
             eval_max_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
-            reduce_dict (Dict, optional): Dictionary with additional reduce arguments. Defaults to {}.
-            forward_dict (Dict, optional): Dictionary with additional forward arguments. Defaults to {}.
+            reduce_dict (Union[None, Dict[str, Any]], optional): Dictionary with additional reduce arguments. Defaults to {}.
+            forward_dict (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments. Defaults to {}.
 
         Raises:
             ValueError: Ind_list must be a List of tuples!
