@@ -3,14 +3,13 @@ import torch
 from collections import Counter
 from math import factorial
 from torch.autograd import grad
-from abc import ABC
 from typing import Tuple, List, Dict, Optional, Any, Union, Callable
 
 ##############################################
 # Helper functions
 
 
-def get_factorial_factors(*indices: List) -> float:
+def get_factorial_factors(*indices: int) -> float:
     """Function to compute the factorial factors for the taylorcoefficients: Prod_n^len(indices) 1/n!
 
     Returns:
@@ -18,7 +17,7 @@ def get_factorial_factors(*indices: List) -> float:
     """
     factor = 1.0
     counts = Counter(indices)
-    for nth_variable, counts in counts.items():
+    for _, counts in counts.items():
         factor *= factorial(counts)
     return 1.0 / factor
 
@@ -39,7 +38,7 @@ def identity(x: torch.Tensor) -> torch.Tensor:
 # main class
 
 
-class BaseTaylorAnalysis(ABC):
+class BaseTaylorAnalysis(object):
     """Class to wrap nn.Module for taylorcoefficient analysis. Base class for TaylorAnalysis. Use this class if you want to compute
     raw taylor coefficients or use your own plotting.
     """
@@ -47,7 +46,7 @@ class BaseTaylorAnalysis(ABC):
     def _node_selection(
         self,
         pred: torch.Tensor,
-        node: Optional[int],
+        node: int,
         eval_max_node_only: bool,
     ) -> torch.Tensor:
         """Method to select the nodes for which the taylorcoefficients should be computed.
@@ -83,7 +82,6 @@ class BaseTaylorAnalysis(ABC):
 
         # sum up everything
         pred = pred.sum()
-
         return pred
 
     @torch.enable_grad
@@ -92,7 +90,7 @@ class BaseTaylorAnalysis(ABC):
         x_data: torch.Tensor,
         node: int,
         eval_max_node_only: bool,
-        forward_dict: Dict,
+        forward_kwargs: Dict,
         ind_i: int,
     ) -> torch.Tensor:
         """Method to compute the first order taylorcoefficients.
@@ -101,7 +99,7 @@ class BaseTaylorAnalysis(ABC):
             x_data (torch.Tensor): X data of shape (batch, features).
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_dict (Dict): Dictionary with additional forward arguments.
+            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): Index of the feature for which the taylorcoefficients should be computed.
 
         Returns:
@@ -110,7 +108,7 @@ class BaseTaylorAnalysis(ABC):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self(x_data, **forward_dict)
+        pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order grads
         gradients = grad(pred, x_data)
@@ -123,7 +121,7 @@ class BaseTaylorAnalysis(ABC):
         x_data: torch.Tensor,
         node: int,
         eval_max_node_only: bool,
-        forward_dict: Dict,
+        forward_kwargs: Dict,
         ind_i: int,
         ind_j: int,
     ) -> torch.Tensor:
@@ -133,7 +131,7 @@ class BaseTaylorAnalysis(ABC):
             x_data (torch.Tensor): X data of shape (batch, features).
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_dict (Dict): Dictionary with additional forward arguments.
+            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
 
@@ -143,7 +141,7 @@ class BaseTaylorAnalysis(ABC):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self(x_data, **forward_dict)
+        pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -161,7 +159,7 @@ class BaseTaylorAnalysis(ABC):
         x_data: torch.Tensor,
         node: int,
         eval_max_node_only: bool,
-        forward_dict: Dict,
+        forward_kwargs: Dict,
         ind_i: int,
         ind_j: int,
         ind_k: int,
@@ -172,7 +170,7 @@ class BaseTaylorAnalysis(ABC):
             x_data (torch.Tensor): X data of shape (batch, features).
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_dict (Dict): Dictionary with additional forward arguments.
+            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
             ind_k (Int): Third index of the feature for which the taylorcoefficients should be computed.
@@ -183,7 +181,7 @@ class BaseTaylorAnalysis(ABC):
         x_data.requires_grad = True
         self.zero_grad()
         x_data.grad = None
-        pred = self(x_data, **forward_dict)
+        pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
         gradients = grad(pred, x_data, create_graph=True)
@@ -203,17 +201,16 @@ class BaseTaylorAnalysis(ABC):
         x_data: torch.Tensor,
         node: int,
         eval_max_node_only: bool,
-        forward_dict: Dict,
+        forward_kwargs: Dict,
         *indices,
-    ):
+    ) -> torch.Tensor:
         """Method to calculate the taylorcoefficients based on the indices.
 
         Args:
             x_data (torch.Tensor): X data of shape (batch, features).
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            reduce_dict (Dict): Dictionary with additional reduce arguments.
-            forward_dict (Dict): Dictionary with additional forward arguments.
+            forward_kwargs (Dict): Dictionary with additional forward arguments.
 
         Raises:
             NotImplementedError: Only first, second and third order taylorcoefficients are supported.
@@ -223,43 +220,40 @@ class BaseTaylorAnalysis(ABC):
         """
 
         functions = [self._first_order, self._second_order, self._third_order]
-        try:
-            out = functions[len(indices) - 1](
-                x_data,
-                node,
-                eval_max_node_only,
-                forward_dict,
-                *indices,
-            )
-            return out
-        except:
-            raise NotImplementedError(
-                "Only first, second and third order taylorcoefficients are supported."
-            )
+        # try:
+        return functions[len(indices) - 1](
+            x_data,
+            node,
+            eval_max_node_only,
+            forward_kwargs,
+            *indices,
+        )
+        # except:
+        #    raise NotImplementedError(
+        #        "Only first, second and third order taylorcoefficients are supported."
+        #    )
 
     def get_tc(
         self,
         x_data: torch.Tensor,
-        ind_list: List[Tuple[int, ...]],
-        node: Union[int, None] = None,
-        eval_max_node_only: bool = True,
+        index_list: List[Tuple[int, ...]],
+        node: Optional[Union[int, Tuple[int], None]] = None,
+        eval_max_node_only: Optional[bool] = True,
         reduce_func: Optional[Callable] = identity,
-        reduce_dict: Union[None, Dict[str, Any]] = None,
-        forward_dict: Union[None, Dict[str, Any]] = None,
+        forward_kwargs: Optional[Union[None, Dict[str, Any]]] = None,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
         Args:
             x_data (torch.Tensor): X data of shape (batch, features).
-            ind_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
+            index_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
             node (Int, optional): Node selection for evaluation. Defaults to None.
             eval_max_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
-            reduce_dict (Union[None, Dict[str, Any]], optional): Dictionary with additional reduce arguments. Defaults to {}.
-            forward_dict (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments. Defaults to {}.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments. Defaults to {}.
 
         Raises:
-            ValueError: Ind_list must be a List of tuples!
+            ValueError: index_list must be a List of tuples!
 
         Returns:
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
@@ -267,18 +261,22 @@ class BaseTaylorAnalysis(ABC):
 
         # set default values
         # dict can not directly used bc mutable properties might lead to unexpected behavior when calling function multiple times
-        forward_dict = {} if forward_dict is None else forward_dict
-        reduce_dict = {} if reduce_dict is None else reduce_dict
+        forward_kwargs = {} if forward_kwargs is None else forward_kwargs
+
+        assert isinstance(reduce_func, Callable), "Reduce function must be callable!"
+        assert isinstance(
+            node, (int, tuple, type(None))
+        ), "Node must be int, tuple or None!"
 
         # loop over all tc to compute
         output = {}
-        for ind in ind_list:
+        for ind in index_list:
             if not isinstance(ind, tuple):
-                raise ValueError("Ind_list must be a list of tuples!")
+                raise ValueError("index_list must be a list of tuples!")
             # get TCs
             out = self._calculate_tc(
-                x_data, node, eval_max_node_only, forward_dict, *ind
+                x_data, node, eval_max_node_only, forward_kwargs, *ind
             )
             # apply reduce function
-            output[ind] = reduce_func(out, **reduce_dict)
+            output[ind] = reduce_func(out)
         return output

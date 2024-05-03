@@ -3,12 +3,13 @@ import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from typing import List, Tuple, Union
 from torch import nn
 from itertools import product
 
 
-def generate_combinations(numbers, length):
-    return list(product(numbers, repeat=length))
+def generate_combinations(numbers: Union[List, Tuple], length: int):
+    return tuple(product(numbers, repeat=length))
 
 
 mean_sig = [0.5, 0.5]
@@ -126,9 +127,9 @@ class Mlp(nn.Module):
         return x
 
 
-def get_feature_combis(feature_list, combination_list):
+def get_feature_combis(feature_list: list, combi_list: list):
     feature_combinations = []
-    for combination in combination_list:
+    for combination in combi_list:
         feature_combi = tuple(feature_list[val] for val in combination)
         feature_combinations.append(feature_combi)
     return feature_combinations
