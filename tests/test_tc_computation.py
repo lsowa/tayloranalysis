@@ -1,7 +1,7 @@
 import torch
 import unittest
-import itertools
-import tayloranalysis as ta
+
+from src.tayloranalysis import extend_model
 
 
 class Polynom(torch.nn.Module):
@@ -17,7 +17,7 @@ class Polynom(torch.nn.Module):
 class TestTCComputation(unittest.TestCase):
     def setUp(self):
         # setup model
-        WrappedModel = ta.extend_model(Polynom)
+        WrappedModel = extend_model(Polynom)
         self.model = WrappedModel()
 
         # setup feature combinations and expected results

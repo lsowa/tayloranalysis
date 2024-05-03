@@ -2,7 +2,7 @@ import unittest
 import torch
 import itertools
 
-import tayloranalysis as ta
+from src.tayloranalysis import extend_model
 
 from torch import nn
 
@@ -24,6 +24,7 @@ class Mlp(nn.Module):
         x = torch.tanh(x)
         return x
 
+
 mlp_specs = {
     "input_neurons": 5,
     "hidden_neurons": 10,
@@ -33,6 +34,7 @@ mlp_specs = {
 
 
 x_data = torch.rand(10, 5)
+
 
 class TestBaseClass:
     def test_forward(self):
@@ -44,9 +46,12 @@ class TestBaseClass:
     def test_node_compatibilities(self):
         # test if all-node results fit singe single-node and max-node results
         combinations = []
-        for nth_order in [1,2,3]:
+        for nth_order in [1, 2, 3]:
             combinations += [
-                i for i in itertools.permutations(range(mlp_specs["output_neurons"]), nth_order)
+                i
+                for i in itertools.permutations(
+                    range(mlp_specs["output_neurons"]), nth_order
+                )
             ]
         for index in combinations:
             for eval_max_node_only in [False, True]:
@@ -82,7 +87,7 @@ class TestBaseClass:
 class TestClassExtention(TestBaseClass, unittest.TestCase):
     def setUp(self):
         # check inheritance method
-        WrappedModel = ta.extend_model(Mlp)
+        WrappedModel = extend_model(Mlp)
         self.model = WrappedModel(**mlp_specs)
 
 
@@ -90,7 +95,7 @@ class TestInstanceExtention(TestBaseClass, unittest.TestCase):
     def setUp(self):
         # check adding methods to object
         model = Mlp(**mlp_specs)
-        self.model = ta.extend_model(model)
+        self.model = extend_model(model)
 
 
 def test_suite():

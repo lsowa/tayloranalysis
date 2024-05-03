@@ -90,7 +90,6 @@ shellingham==1.5.4
 six==1.16.0
 stack-data==0.6.3
 sympy==1.12
--e git+ssh://git@gitlab.etp.kit.edu/lsowa/tayloranalysis.git@60e45bc2afc63d7647016ca43365e5daeae56867#egg=tayloranalysis
 threadpoolctl==3.4.0
 tomli==2.0.1
 tomlkit==0.12.4
