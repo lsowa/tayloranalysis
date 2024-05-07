@@ -255,11 +255,11 @@ class BaseTaylorAnalysis(object):
         functions = [self._first_order, self._second_order, self._third_order]
         try:
             return functions[len(indices) - 1](
-                x_data=x_data,
-                node=node,
-                eval_max_node_only=eval_max_node_only,
-                forward_kwargs=forward_kwargs,
-                features_axis=features_axis,
+                x_data,
+                node,
+                eval_max_node_only,
+                forward_kwargs,
+                features_axis,
                 *indices,
             )
         except KeyError:
@@ -308,11 +308,11 @@ class BaseTaylorAnalysis(object):
                 raise ValueError("index_list must be a list of tuples!")
             # get TCs
             out = self._calculate_tc(
-                x_data=x_data,
-                node=node,
-                eval_max_node_only=eval_max_node_only,
-                forward_kwargs=forward_kwargs,
-                features_axis=features_axis,
+                x_data,
+                node,
+                eval_max_node_only,
+                forward_kwargs,
+                features_axis,
                 *ind,
             )
             # apply reduce function
