@@ -1,0 +1,9 @@
+stages:
+  - test
+
+unittests:
+  stage: test
+  image: python:3.8
+  script:
+    - python -m pip install -r requirements4dev.txt
+    - python -m unittest discover -s tests
