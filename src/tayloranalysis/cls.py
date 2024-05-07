@@ -22,6 +22,38 @@ def get_factorial_factors(*indices: int) -> float:
     return 1.0 / factor
 
 
+def get_summation_indices(shape: torch.Tensor.shape, drop_axis) -> Tuple[int, ...]:
+    """Function to get the summation indices for the gradient.
+
+    Args:
+        shape (torch.Tensor.shape): Shape of the tensor.
+        drop_axis (int): Axis to remove from the summation.
+
+    Returns:
+        Tuple[int, ...]: Indices that should be summed up.
+    """
+
+    idx = list(range(len(shape)))
+    idx.pop(drop_axis)
+    return tuple(idx)
+
+
+def get_slice(shape: torch.Tensor.shape, index: int, axis: int) -> Tuple[slice, ...]:
+    """Function to get the slice for a tensor.
+
+    Args:
+        shape (torch.Tensor.shape): Shape of the tensor.
+        index (int): Index that should be selected by the slice.
+        axis (int): Axis of the given index.
+
+    Returns:
+        Tuple[slice, ...]: Slice for the tensor retrieval.
+    """
+    idx = [slice(None)] * len(shape)
+    idx[axis] = index
+    return tuple(idx)
+
+
 def identity(x: torch.Tensor) -> torch.Tensor:
     """Identity function.
 
@@ -91,6 +123,7 @@ class BaseTaylorAnalysis(object):
         node: int,
         eval_max_node_only: bool,
         forward_kwargs: Dict,
+        features_axis: int,
         ind_i: int,
     ) -> torch.Tensor:
         """Method to compute the first order taylorcoefficients.
@@ -111,9 +144,8 @@ class BaseTaylorAnalysis(object):
         pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order grads
-        gradients = grad(pred, x_data)
-        gradients = gradients[0][:, ind_i]
-        return gradients
+        gradients = grad(pred, x_data)[0]
+        return gradients[get_slice(gradients.shape, ind_i, features_axis)]
 
     @torch.enable_grad
     def _second_order(
@@ -122,6 +154,7 @@ class BaseTaylorAnalysis(object):
         node: int,
         eval_max_node_only: bool,
         forward_kwargs: Dict,
+        features_axis: int,
         ind_i: int,
         ind_j: int,
     ) -> torch.Tensor:
@@ -144,14 +177,13 @@ class BaseTaylorAnalysis(object):
         pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
-        gradients = grad(pred, x_data, create_graph=True)
-        gradients = gradients[0].sum(dim=0)
+        gradients = grad(pred, x_data, create_graph=True)[0]
+        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
         # second order gradients
-        gradients = grad(gradients[ind_i], x_data)
-        gradients = gradients[0]
+        gradients = grad(gradients[ind_i], x_data)[0]
         # factor for second order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j)
-        return gradients[:, ind_j]
+        return gradients[get_slice(gradients.shape, ind_j, features_axis)]
 
     @torch.enable_grad
     def _third_order(
@@ -160,6 +192,7 @@ class BaseTaylorAnalysis(object):
         node: int,
         eval_max_node_only: bool,
         forward_kwargs: Dict,
+        features_axis: int,
         ind_i: int,
         ind_j: int,
         ind_k: int,
@@ -184,17 +217,16 @@ class BaseTaylorAnalysis(object):
         pred = self(x_data, **forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
-        gradients = grad(pred, x_data, create_graph=True)
-        gradients = gradients[0].sum(dim=0)
+        gradients = grad(pred, x_data, create_graph=True)[0]
+        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
         # second order gradients
-        gradients = grad(gradients[ind_i], x_data, create_graph=True)
-        gradients = gradients[0].sum(dim=0)
+        gradients = grad(gradients[ind_i], x_data, create_graph=True)[0]
+        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
         # third order gradients
-        gradients = grad(gradients[ind_j], x_data)
-        gradients = gradients[0]
+        gradients = grad(gradients[ind_j], x_data)[0]
         # factor for all third order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j, ind_k)
-        return gradients[:, ind_k]
+        return gradients[get_slice(gradients.shape, ind_k, features_axis)]
 
     def _calculate_tc(
         self,
@@ -202,6 +234,7 @@ class BaseTaylorAnalysis(object):
         node: int,
         eval_max_node_only: bool,
         forward_kwargs: Dict,
+        features_axis: int,
         *indices,
     ) -> torch.Tensor:
         """Method to calculate the taylorcoefficients based on the indices.
@@ -220,18 +253,17 @@ class BaseTaylorAnalysis(object):
         """
 
         functions = [self._first_order, self._second_order, self._third_order]
-        # try:
-        return functions[len(indices) - 1](
-            x_data,
-            node,
-            eval_max_node_only,
-            forward_kwargs,
-            *indices,
-        )
-        # except:
-        #    raise NotImplementedError(
-        #        "Only first, second and third order taylorcoefficients are supported."
-        #    )
+        try:
+            return functions[len(indices) - 1](
+                x_data,
+                node,
+                eval_max_node_only,
+                forward_kwargs,
+                features_axis,
+                *indices,
+            )
+        except KeyError:
+            raise NotImplementedError("Only first, second and third order taylorcoefficients are supported.")
 
     def get_tc(
         self,
@@ -241,6 +273,7 @@ class BaseTaylorAnalysis(object):
         eval_max_node_only: Optional[bool] = True,
         reduce_func: Optional[Callable] = identity,
         forward_kwargs: Optional[Union[None, Dict[str, Any]]] = None,
+        features_axis: int = -1,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
@@ -275,7 +308,12 @@ class BaseTaylorAnalysis(object):
                 raise ValueError("index_list must be a list of tuples!")
             # get TCs
             out = self._calculate_tc(
-                x_data, node, eval_max_node_only, forward_kwargs, *ind
+                x_data,
+                node,
+                eval_max_node_only,
+                forward_kwargs,
+                features_axis,
+                *ind,
             )
             # apply reduce function
             output[ind] = reduce_func(out)
