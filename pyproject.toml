@@ -3,6 +3,7 @@ name = "tayloranalysis"
 version = "0.2.0"
 description = "Taylorcoefficient Analysis for pytorch models"
 authors = ["Artur Monsch <artur.monsch@kit.edu>", "Lars Sowa <lars.sowa@kit.edu>"]
+license = "{file = \"LICENSE\"}"
 readme = "README.md"
 
 [build-system]
@@ -28,8 +29,4 @@ seaborn = "0.13.2"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-numpy = "1.24.4"
-pandas = "2.0.3"
-scikit-learn = "1.3.2"
-scipy = "1.9.3"
-torch = "2.2.2"
+torch = "^2.0.0"
