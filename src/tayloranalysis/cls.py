@@ -119,41 +119,42 @@ class BaseTaylorAnalysis(object):
     @torch.enable_grad
     def _first_order(
         self,
-        x_data: torch.Tensor,
+        x_key: str,
+        forward_kwargs: Dict,
         node: int,
         eval_max_node_only: bool,
-        forward_kwargs: Dict,
         features_axis: int,
         ind_i: int,
     ) -> torch.Tensor:
         """Method to compute the first order taylorcoefficients.
 
         Args:
-            x_data (torch.Tensor): X data of shape (batch, features).
+            x_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): Index of the feature for which the taylorcoefficients should be computed.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs[x_key]. Defaults to -1.
 
         Returns:
             torch.Tensor: First order taylorcoefficients of shape (batch, features).
         """
-        x_data.requires_grad = True
+        forward_kwargs[x_key].requires_grad = True
         self.zero_grad()
-        x_data.grad = None
-        pred = self(x_data, **forward_kwargs)
+        forward_kwargs[x_key].grad = None
+        pred = self(**forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order grads
-        gradients = grad(pred, x_data)[0]
+        gradients = grad(pred, forward_kwargs[x_key])[0]
         return gradients[get_slice(gradients.shape, ind_i, features_axis)]
 
     @torch.enable_grad
     def _second_order(
         self,
-        x_data: torch.Tensor,
+        x_key: str,
+        forward_kwargs: Dict,
         node: int,
         eval_max_node_only: bool,
-        forward_kwargs: Dict,
         features_axis: int,
         ind_i: int,
         ind_j: int,
@@ -161,26 +162,29 @@ class BaseTaylorAnalysis(object):
         """Method to compute the second order taylorcoefficients.
 
         Args:
-            x_data (torch.Tensor): X data of shape (batch, features).
+            x_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs[x_key]. Defaults to -1.
 
         Returns:
             torch.Tensor: Second order taylorcoefficients of shape (batch, features).
         """
-        x_data.requires_grad = True
+        forward_kwargs[x_key].requires_grad = True
         self.zero_grad()
-        x_data.grad = None
-        pred = self(x_data, **forward_kwargs)
+        forward_kwargs[x_key].grad = None
+        pred = self(**forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
-        gradients = grad(pred, x_data, create_graph=True)[0]
-        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
+        gradients = grad(pred, forward_kwargs[x_key], create_graph=True)[0]
+        gradients = gradients.sum(
+            axis=get_summation_indices(gradients.shape, features_axis)
+        )
         # second order gradients
-        gradients = grad(gradients[ind_i], x_data)[0]
+        gradients = grad(gradients[ind_i], forward_kwargs[x_key])[0]
         # factor for second order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j)
         return gradients[get_slice(gradients.shape, ind_j, features_axis)]
@@ -188,10 +192,10 @@ class BaseTaylorAnalysis(object):
     @torch.enable_grad
     def _third_order(
         self,
-        x_data: torch.Tensor,
+        x_key: str,
+        forward_kwargs: Dict,
         node: int,
         eval_max_node_only: bool,
-        forward_kwargs: Dict,
         features_axis: int,
         ind_i: int,
         ind_j: int,
@@ -200,50 +204,56 @@ class BaseTaylorAnalysis(object):
         """Method to compute the third order taylorcoefficients.
 
         Args:
-            x_data (torch.Tensor): X data of shape (batch, features).
+            x_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_kwargs (Dict): Dictionary with additional forward arguments.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
             ind_k (Int): Third index of the feature for which the taylorcoefficients should be computed.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs[x_key]. Defaults to -1.
 
         Returns:
             torch.Tensor: Third order taylorcoefficients of shape (batch, features).
         """
-        x_data.requires_grad = True
+        forward_kwargs[x_key].requires_grad = True
         self.zero_grad()
-        x_data.grad = None
-        pred = self(x_data, **forward_kwargs)
+        forward_kwargs[x_key].grad = None
+        pred = self(**forward_kwargs)
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
-        gradients = grad(pred, x_data, create_graph=True)[0]
-        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
+        gradients = grad(pred, forward_kwargs[x_key], create_graph=True)[0]
+        gradients = gradients.sum(
+            axis=get_summation_indices(gradients.shape, features_axis)
+        )
         # second order gradients
-        gradients = grad(gradients[ind_i], x_data, create_graph=True)[0]
-        gradients = gradients.sum(axis=get_summation_indices(gradients.shape, features_axis))
+        gradients = grad(gradients[ind_i], forward_kwargs[x_key], create_graph=True)[0]
+        gradients = gradients.sum(
+            axis=get_summation_indices(gradients.shape, features_axis)
+        )
         # third order gradients
-        gradients = grad(gradients[ind_j], x_data)[0]
+        gradients = grad(gradients[ind_j], forward_kwargs[x_key])[0]
         # factor for all third order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j, ind_k)
         return gradients[get_slice(gradients.shape, ind_k, features_axis)]
 
     def _calculate_tc(
         self,
-        x_data: torch.Tensor,
+        x_key: str,
+        forward_kwargs: Dict,
         node: int,
         eval_max_node_only: bool,
-        forward_kwargs: Dict,
         features_axis: int,
         *indices,
     ) -> torch.Tensor:
         """Method to calculate the taylorcoefficients based on the indices.
 
         Args:
-            x_data (torch.Tensor): X data of shape (batch, features).
+            x_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments
             node (Int): Node selection for evaluation.
             eval_max_node_only (Bool): If True, only the node with the highest value is selected.
-            forward_kwargs (Dict): Dictionary with additional forward arguments.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs[x_key]. Defaults to -1.
 
         Raises:
             NotImplementedError: Only first, second and third order taylorcoefficients are supported.
@@ -255,46 +265,44 @@ class BaseTaylorAnalysis(object):
         functions = [self._first_order, self._second_order, self._third_order]
         try:
             return functions[len(indices) - 1](
-                x_data,
+                x_key,
+                forward_kwargs,
                 node,
                 eval_max_node_only,
-                forward_kwargs,
                 features_axis,
                 *indices,
             )
         except KeyError:
-            raise NotImplementedError("Only first, second and third order taylorcoefficients are supported.")
+            raise NotImplementedError(
+                "Only first, second and third order taylorcoefficients are supported."
+            )
 
     def get_tc(
         self,
-        x_data: torch.Tensor,
+        x_key: str,
+        forward_kwargs: Dict[str, Any],
         index_list: List[Tuple[int, ...]],
         node: Optional[Union[int, Tuple[int], None]] = None,
         eval_max_node_only: Optional[bool] = True,
         reduce_func: Optional[Callable] = identity,
-        forward_kwargs: Optional[Union[None, Dict[str, Any]]] = None,
         features_axis: int = -1,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
         Args:
-            x_data (torch.Tensor): X data of shape (batch, features).
+            x_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments
             index_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
             node (Int, optional): Node selection for evaluation. Defaults to None.
             eval_max_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
-            forward_kwargs (Union[None, Dict[str, Any]], optional): Dictionary with additional forward arguments. Defaults to {}.
-
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs[x_key]. Defaults to -1.
         Raises:
             ValueError: index_list must be a List of tuples!
 
         Returns:
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
         """
-
-        # set default values
-        # dict can not directly used bc mutable properties might lead to unexpected behavior when calling function multiple times
-        forward_kwargs = {} if forward_kwargs is None else forward_kwargs
 
         assert isinstance(reduce_func, Callable), "Reduce function must be callable!"
         assert isinstance(
@@ -308,10 +316,10 @@ class BaseTaylorAnalysis(object):
                 raise ValueError("index_list must be a list of tuples!")
             # get TCs
             out = self._calculate_tc(
-                x_data,
+                x_key,
+                forward_kwargs,
                 node,
                 eval_max_node_only,
-                forward_kwargs,
                 features_axis,
                 *ind,
             )
