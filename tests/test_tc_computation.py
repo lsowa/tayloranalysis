@@ -65,7 +65,8 @@ class TestTCComputation(unittest.TestCase):
             ):
                 # compute TC
                 tc = _model.get_tc(
-                    x_data=_point,
+                    "point",
+                    forward_kwargs={"point": _point},
                     index_list=[combination],
                     features_axis=_feature_axis,
                 )

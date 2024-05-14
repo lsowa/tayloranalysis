@@ -59,7 +59,8 @@ class TestBaseClass:
                 for node in range(mlp_specs["output_neurons"]):
                     # get singe node results
                     tc = self.model.get_tc(
-                        x_data=x_data,
+                        "x",
+                        forward_kwargs={"x": x_data},
                         index_list=[index],
                         node=node,
                         eval_max_node_only=eval_max_node_only,
@@ -68,7 +69,8 @@ class TestBaseClass:
                     node_outputs.append(tc)
                 # get all-node results
                 tc = self.model.get_tc(
-                    x_data=x_data,
+                    "x",
+                    forward_kwargs={"x": x_data},
                     index_list=[index],
                     node=None,
                     eval_max_node_only=eval_max_node_only,
