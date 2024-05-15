@@ -77,6 +77,15 @@ class CustomForwardDict(dict):
 
     @property
     def deriv_target(self):
+        """Property to easily access the derivation target.
+
+        Raises:
+            ValueError: If _idx is not an int
+            NotImplementedError: Only list and tensor are supported as derivation targets.
+
+        Returns:
+            torch.Tensor: Derivation target.
+        """
         # if the key is a list/tuple, return the element (tensor) at the given index
         if isinstance(self.__getitem__(self._key), Sequence):
             if not isinstance(self._idx, int):
@@ -103,15 +112,15 @@ class BaseTaylorAnalysis(object):
     def _node_selection(
         self,
         pred: torch.Tensor,
-        node: int,
-        eval_max_node_only: bool,
+        output_node: int,
+        eval_max_output_node_only: bool,
     ) -> torch.Tensor:
         """Method to select the nodes for which the taylorcoefficients should be computed.
 
         Args:
             pred (torch.Tensor): X data of shape (batch, features).
-            node (Optional[Int]): Node selection for evaluation. If None, all nodes are selected. If int, only the selected node is selected. If tuple, only the selected nodes are selected.
-            eval_max_node_only (Bool): If True, only the node with the highest value is selected.
+            output_node (Optional[Int]): Node selection for evaluation. If None, all nodes are selected. If int, only the selected node is selected. If tuple, only the selected nodes are selected.
+            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
 
         Returns:
             torch.Tensor: Selected taylorcoefficients (batch, features)
@@ -121,9 +130,9 @@ class BaseTaylorAnalysis(object):
             # sum up everything
             return pred.sum()
 
-        # first step: masking non max values if eval_max_node_only is set
+        # first step: masking non max values if eval_max_output_node_only is set
         # and keeping only the output nodes with the highest value
-        if eval_max_node_only:
+        if eval_max_output_node_only:
             pred_view = pred.view(-1, pred.shape[-1])
             pred_cat = (
                 (pred_view == pred_view.max(dim=1, keepdim=True)[0])
@@ -133,9 +142,9 @@ class BaseTaylorAnalysis(object):
             pred = pred * pred_cat
 
         # second step: class selection
-        # no selection is performed when node == "all"
-        if isinstance(node, (int, tuple)):  # i.e. 0, (0, 1)
-            pred = pred[:, node]
+        # no selection is performed when output_node == "all"
+        if isinstance(output_node, (int, tuple)):  # i.e. 0, (0, 1)
+            pred = pred[:, output_node]
 
         # sum up everything
         pred = pred.sum()
@@ -145,8 +154,8 @@ class BaseTaylorAnalysis(object):
     def _first_order(
         self,
         forward_kwargs: CustomForwardDict,
-        node: int,
-        eval_max_node_only: bool,
+        output_node: int,
+        eval_max_output_node_only: bool,
         features_axis: int,
         keep_model_output: int,
         ind_i: int,
@@ -155,8 +164,8 @@ class BaseTaylorAnalysis(object):
 
         Args:
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
-            node (Int): Node selection for evaluation.
-            eval_max_node_only (Bool): If True, only the node with the highest value is selected.
+            output_node (Int): Node selection for evaluation.
+            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
             ind_i (Int): Index of the feature for which the taylorcoefficients should be computed.
             features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
 
@@ -169,7 +178,7 @@ class BaseTaylorAnalysis(object):
         pred = self(**forward_kwargs)
         if isinstance(pred, Sequence):
             pred = pred[keep_model_output]
-        pred = self._node_selection(pred, node, eval_max_node_only)
+        pred = self._node_selection(pred, output_node, eval_max_output_node_only)
         # first order grads
         gradients = grad(pred, forward_kwargs.deriv_target)[0]
         return gradients[get_slice(gradients.shape, ind_i, features_axis)]
@@ -178,8 +187,8 @@ class BaseTaylorAnalysis(object):
     def _second_order(
         self,
         forward_kwargs: CustomForwardDict,
-        node: int,
-        eval_max_node_only: bool,
+        output_node: int,
+        eval_max_output_node_only: bool,
         features_axis: int,
         keep_model_output: int,
         ind_i: int,
@@ -189,8 +198,8 @@ class BaseTaylorAnalysis(object):
 
         Args:
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
-            node (Int): Node selection for evaluation.
-            eval_max_node_only (Bool): If True, only the node with the highest value is selected.
+            output_node (Int): Node selection for evaluation.
+            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
             features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
@@ -204,7 +213,7 @@ class BaseTaylorAnalysis(object):
         pred = self(**forward_kwargs)
         if isinstance(pred, Sequence):
             pred = pred[keep_model_output]
-        pred = self._node_selection(pred, node, eval_max_node_only)
+        pred = self._node_selection(pred, output_node, eval_max_output_node_only)
         # first order gradients
         gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
         gradients = gradients.sum(
@@ -220,8 +229,8 @@ class BaseTaylorAnalysis(object):
     def _third_order(
         self,
         forward_kwargs: CustomForwardDict,
-        node: int,
-        eval_max_node_only: bool,
+        output_node: int,
+        eval_max_output_node_only: bool,
         features_axis: int,
         keep_model_output: int,
         ind_i: int,
@@ -232,8 +241,8 @@ class BaseTaylorAnalysis(object):
 
         Args:
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
-            node (Int): Node selection for evaluation.
-            eval_max_node_only (Bool): If True, only the node with the highest value is selected.
+            output_node (Int): Node selection for evaluation.
+            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
             ind_i (Int): First index of the feature for which the taylorcoefficients should be computed.
             ind_j (Int): Second index of the feature for which the taylorcoefficients should be computed.
             ind_k (Int): Third index of the feature for which the taylorcoefficients should be computed.
@@ -248,7 +257,7 @@ class BaseTaylorAnalysis(object):
         pred = self(**forward_kwargs)
         if isinstance(pred, Sequence):
             pred = pred[keep_model_output]
-        pred = self._node_selection(pred, node, eval_max_node_only)
+        pred = self._node_selection(pred, output_node, eval_max_output_node_only)
         # first order gradients
         gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
         gradients = gradients.sum(
@@ -270,8 +279,8 @@ class BaseTaylorAnalysis(object):
     def _calculate_tc(
         self,
         forward_kwargs: CustomForwardDict,
-        node: int,
-        eval_max_node_only: bool,
+        output_node: int,
+        eval_max_output_node_only: bool,
         features_axis: int,
         keep_model_output: int,
         *indices,
@@ -280,8 +289,8 @@ class BaseTaylorAnalysis(object):
 
         Args:
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
-            node (Int): Node selection for evaluation.
-            eval_max_node_only (Bool): If True, only the node with the highest value is selected.
+            output_node (Int): Node selection for evaluation.
+            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
             features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
 
         Raises:
@@ -295,8 +304,8 @@ class BaseTaylorAnalysis(object):
         try:
             return functions[len(indices) - 1](
                 forward_kwargs,
-                node,
-                eval_max_node_only,
+                output_node,
+                eval_max_output_node_only,
                 features_axis,
                 keep_model_output,
                 *indices,
@@ -311,11 +320,11 @@ class BaseTaylorAnalysis(object):
         target_key: str,
         forward_kwargs: Dict[str, Any],
         index_list: List[Tuple[int, ...]],
-        node: Optional[Union[int, Tuple[int], None]] = None,
-        eval_max_node_only: Optional[bool] = True,
+        output_node: Optional[Union[int, Tuple[int], None]] = None,
+        eval_max_output_node_only: Optional[bool] = True,
         reduce_func: Optional[Callable] = identity,
         features_axis: int = -1,
-        target_idx: Union[int, None] = None,
+        output_idx: Union[int, None] = None,
         keep_model_output: int = 0,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
@@ -324,11 +333,11 @@ class BaseTaylorAnalysis(object):
             target_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
             forward_kwargs (Union[None, Dict[str, Any]]): Dictionary with forward arguments
             index_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
-            node (Int, optional): Node selection for evaluation. Defaults to None.
-            eval_max_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
+            output_node (Int, optional): Node selection for evaluation. Defaults to None.
+            eval_max_output_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
             features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
-            target_idx (Union[int, None], optional): Index of the target tensor if forward_kwargs[target_key] is a list. Defaults to None.
+            output_idx (Union[int, None], optional): Index of the target tensor if forward_kwargs[target_key] is a list. Defaults to None.
         Raises:
             ValueError: index_list must be a List of tuples!
 
@@ -336,11 +345,11 @@ class BaseTaylorAnalysis(object):
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
         """
 
-        forward_kwargs = CustomForwardDict(target_key, target_idx, forward_kwargs)
+        forward_kwargs = CustomForwardDict(target_key, output_idx, forward_kwargs)
 
         assert isinstance(reduce_func, Callable), "Reduce function must be callable!"
         assert isinstance(
-            node, (int, tuple, type(None))
+            output_node, (int, tuple, type(None))
         ), "Node must be int, tuple or None!"
 
         # loop over all tc to compute
@@ -351,8 +360,8 @@ class BaseTaylorAnalysis(object):
             # get TCs
             out = self._calculate_tc(
                 forward_kwargs,
-                node,
-                eval_max_node_only,
+                output_node,
+                eval_max_output_node_only,
                 features_axis,
                 keep_model_output,
                 *ind,
