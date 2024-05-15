@@ -54,7 +54,7 @@ class TestBaseClass:
                 )
             ]
         for index in combinations:
-            for eval_max_node_only in [False, True]:
+            for eval_max_output_node_only in [False, True]:
                 node_outputs = []
                 for node in range(mlp_specs["output_neurons"]):
                     # get singe node results
@@ -62,8 +62,8 @@ class TestBaseClass:
                         "x",
                         forward_kwargs={"x": x_data},
                         index_list=[index],
-                        node=node,
-                        eval_max_node_only=eval_max_node_only,
+                        output_node=node,
+                        eval_max_output_node_only=eval_max_output_node_only,
                     )
                     tc = tc[index]
                     node_outputs.append(tc)
@@ -72,14 +72,14 @@ class TestBaseClass:
                     "x",
                     forward_kwargs={"x": x_data},
                     index_list=[index],
-                    node=None,
-                    eval_max_node_only=eval_max_node_only,
+                    output_node=None,
+                    eval_max_output_node_only=eval_max_output_node_only,
                 )
                 tc = tc[index]
                 # sums should be equal
                 node_outputs = torch.stack(node_outputs, dim=-1).sum(dim=-1)
                 with unittest.TestCase().subTest(
-                    index=index, eval_max_node_only=eval_max_node_only
+                    index=index, eval_max_output_node_only=eval_max_output_node_only
                 ):
                     # check if tensors are close
                     is_close = torch.testing.assert_close(tc, node_outputs) == None

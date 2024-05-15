@@ -338,6 +338,7 @@ class BaseTaylorAnalysis(object):
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
             features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
             output_idx (Union[int, None], optional): Index of the target tensor if forward_kwargs[target_key] is a list. Defaults to None.
+            keep_model_output (int, optional): Index of the model output if its output is a sequence. Defaults to 0.
         Raises:
             ValueError: index_list must be a List of tuples!
 
