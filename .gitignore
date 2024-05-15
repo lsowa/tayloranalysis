@@ -4,3 +4,4 @@ workspace.code-workspace
 .nfs*
 *.egg-info/
 *vscode*
+*.pyc

@@ -4,6 +4,7 @@ from collections import Counter
 from math import factorial
 from torch.autograd import grad
 from typing import Tuple, List, Dict, Optional, Any, Union, Callable
+from collections.abc import Sequence
 
 ##############################################
 # Helper functions
@@ -76,8 +77,8 @@ class CustomForwardDict(dict):
 
     @property
     def deriv_target(self):
-        # if the key is a list, return the element (tensor) at the given index
-        if isinstance(self.__getitem__(self._key), list):
+        # if the key is a list/tuple, return the element (tensor) at the given index
+        if isinstance(self.__getitem__(self._key), Sequence):
             if not isinstance(self._idx, int):
                 raise ValueError("Target index must be an integer!")
             return self.__getitem__(self._key)[self._idx]
@@ -140,13 +141,14 @@ class BaseTaylorAnalysis(object):
         pred = pred.sum()
         return pred
 
-    @torch.enable_grad
+    @torch.enable_grad()
     def _first_order(
         self,
         forward_kwargs: CustomForwardDict,
         node: int,
         eval_max_node_only: bool,
         features_axis: int,
+        keep_model_output: int,
         ind_i: int,
     ) -> torch.Tensor:
         """Method to compute the first order taylorcoefficients.
@@ -165,18 +167,21 @@ class BaseTaylorAnalysis(object):
         self.zero_grad()
         forward_kwargs.deriv_target.grad = None
         pred = self(**forward_kwargs)
+        if isinstance(pred, Sequence):
+            pred = pred[keep_model_output]
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order grads
         gradients = grad(pred, forward_kwargs.deriv_target)[0]
         return gradients[get_slice(gradients.shape, ind_i, features_axis)]
 
-    @torch.enable_grad
+    @torch.enable_grad()
     def _second_order(
         self,
         forward_kwargs: CustomForwardDict,
         node: int,
         eval_max_node_only: bool,
         features_axis: int,
+        keep_model_output: int,
         ind_i: int,
         ind_j: int,
     ) -> torch.Tensor:
@@ -197,6 +202,8 @@ class BaseTaylorAnalysis(object):
         self.zero_grad()
         forward_kwargs.deriv_target.grad = None
         pred = self(**forward_kwargs)
+        if isinstance(pred, Sequence):
+            pred = pred[keep_model_output]
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
         gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
@@ -209,13 +216,14 @@ class BaseTaylorAnalysis(object):
         gradients *= get_factorial_factors(ind_i, ind_j)
         return gradients[get_slice(gradients.shape, ind_j, features_axis)]
 
-    @torch.enable_grad
+    @torch.enable_grad()
     def _third_order(
         self,
         forward_kwargs: CustomForwardDict,
         node: int,
         eval_max_node_only: bool,
         features_axis: int,
+        keep_model_output: int,
         ind_i: int,
         ind_j: int,
         ind_k: int,
@@ -238,6 +246,8 @@ class BaseTaylorAnalysis(object):
         self.zero_grad()
         forward_kwargs.deriv_target.grad = None
         pred = self(**forward_kwargs)
+        if isinstance(pred, Sequence):
+            pred = pred[keep_model_output]
         pred = self._node_selection(pred, node, eval_max_node_only)
         # first order gradients
         gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
@@ -263,6 +273,7 @@ class BaseTaylorAnalysis(object):
         node: int,
         eval_max_node_only: bool,
         features_axis: int,
+        keep_model_output: int,
         *indices,
     ) -> torch.Tensor:
         """Method to calculate the taylorcoefficients based on the indices.
@@ -287,6 +298,7 @@ class BaseTaylorAnalysis(object):
                 node,
                 eval_max_node_only,
                 features_axis,
+                keep_model_output,
                 *indices,
             )
         except KeyError:
@@ -304,6 +316,7 @@ class BaseTaylorAnalysis(object):
         reduce_func: Optional[Callable] = identity,
         features_axis: int = -1,
         target_idx: Union[int, None] = None,
+        keep_model_output: int = 0,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
@@ -341,6 +354,7 @@ class BaseTaylorAnalysis(object):
                 node,
                 eval_max_node_only,
                 features_axis,
+                keep_model_output,
                 *ind,
             )
             # apply reduce function
