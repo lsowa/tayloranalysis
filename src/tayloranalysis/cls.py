@@ -7,7 +7,7 @@ from typing import Tuple, List, Dict, Optional, Any, Union, Callable
 from collections.abc import Sequence
 
 ##############################################
-# Helper functions
+# Helpers
 
 
 def get_factorial_factors(*indices: int) -> float:
@@ -100,6 +100,47 @@ class CustomForwardDict(dict):
             )
 
 
+def _node_selection(
+    pred: torch.Tensor,
+    output_node: int,
+    eval_max_output_node_only: bool,
+) -> torch.Tensor:
+    """Method to select the nodes for which the taylorcoefficients should be computed.
+
+    Args:
+        pred (torch.Tensor): X data of shape (batch, features).
+        output_node (Optional[Int]): Node selection for evaluation. If None, all nodes are selected. If int, only the selected node is selected. If tuple, only the selected nodes are selected.
+        eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
+
+    Returns:
+        torch.Tensor: Selected taylorcoefficients (batch, features)
+    """
+    # binary case skips everything
+    if pred.dim() == 1 or pred.shape[1] == 1:
+        # sum up everything
+        return pred.sum()
+
+    # first step: masking non max values if eval_max_output_node_only is set
+    # and keeping only the output nodes with the highest value
+    if eval_max_output_node_only:
+        pred_view = pred.view(-1, pred.shape[-1])
+        pred_cat = (
+            (pred_view == pred_view.max(dim=1, keepdim=True)[0])
+            .view_as(pred)
+            .to(torch.float64)
+        )
+        pred = pred * pred_cat
+
+    # second step: class selection
+    # no selection is performed when output_node == "all"
+    if isinstance(output_node, (int, tuple)):  # i.e. 0, (0, 1)
+        pred = pred[:, output_node]
+
+    # sum up everything
+    pred = pred.sum()
+    return pred
+
+
 ##############################################
 # main class
 
@@ -108,47 +149,6 @@ class BaseTaylorAnalysis(object):
     """Class to wrap nn.Module for taylorcoefficient analysis. Base class for TaylorAnalysis. Use this class if you want to compute
     raw taylor coefficients or use your own plotting.
     """
-
-    def _node_selection(
-        self,
-        pred: torch.Tensor,
-        output_node: int,
-        eval_max_output_node_only: bool,
-    ) -> torch.Tensor:
-        """Method to select the nodes for which the taylorcoefficients should be computed.
-
-        Args:
-            pred (torch.Tensor): X data of shape (batch, features).
-            output_node (Optional[Int]): Node selection for evaluation. If None, all nodes are selected. If int, only the selected node is selected. If tuple, only the selected nodes are selected.
-            eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
-
-        Returns:
-            torch.Tensor: Selected taylorcoefficients (batch, features)
-        """
-        # binary case skips everything
-        if pred.dim() == 1 or pred.shape[1] == 1:
-            # sum up everything
-            return pred.sum()
-
-        # first step: masking non max values if eval_max_output_node_only is set
-        # and keeping only the output nodes with the highest value
-        if eval_max_output_node_only:
-            pred_view = pred.view(-1, pred.shape[-1])
-            pred_cat = (
-                (pred_view == pred_view.max(dim=1, keepdim=True)[0])
-                .view_as(pred)
-                .to(torch.float64)
-            )
-            pred = pred * pred_cat
-
-        # second step: class selection
-        # no selection is performed when output_node == "all"
-        if isinstance(output_node, (int, tuple)):  # i.e. 0, (0, 1)
-            pred = pred[:, output_node]
-
-        # sum up everything
-        pred = pred.sum()
-        return pred
 
     @torch.enable_grad()
     def _first_order(
@@ -281,7 +281,7 @@ class BaseTaylorAnalysis(object):
                     "keep_model_output_idx must be set since model output is a sequence!"
                 )
             pred = pred[keep_model_output_idx]
-        pred = self._node_selection(pred, output_node, eval_max_output_node_only)
+        pred = _node_selection(pred, output_node, eval_max_output_node_only)
 
         # compute TCs
         functions = [self._first_order, self._second_order, self._third_order]
