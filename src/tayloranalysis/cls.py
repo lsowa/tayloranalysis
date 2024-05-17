@@ -69,14 +69,14 @@ def identity(x: torch.Tensor) -> torch.Tensor:
 
 class CustomForwardDict(dict):
     # custom dict wrapper to dynamically access the derivation target
-    def __init__(self, target_key: str, target_idx: int, *args, **kwargs):
+    def __init__(self, key_to_tctensor: str, target_idx: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._key = target_key
+        self._key = key_to_tctensor
         self._idx = target_idx
 
     @property
-    def deriv_target(self):
+    def tctensor(self):
         """Property to easily access the derivation target.
 
         Raises:
@@ -170,7 +170,7 @@ class BaseTaylorAnalysis(object):
         """
 
         # first order grads
-        gradients = grad(pred, forward_kwargs.deriv_target)[0]
+        gradients = grad(pred, forward_kwargs.tctensor)[0]
         return gradients[get_slice(gradients.shape, ind_i, features_axis)]
 
     @torch.enable_grad()
@@ -194,12 +194,12 @@ class BaseTaylorAnalysis(object):
             torch.Tensor: Second order taylorcoefficients of shape (batch, features).
         """
         # first order gradients
-        gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
+        gradients = grad(pred, forward_kwargs.tctensor, create_graph=True)[0]
         gradients = gradients.sum(
             axis=get_summation_indices(gradients.shape, features_axis)
         )
         # second order gradients
-        gradients = grad(gradients[ind_i], forward_kwargs.deriv_target)[0]
+        gradients = grad(gradients[ind_i], forward_kwargs.tctensor)[0]
         # factor for second order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j)
         return gradients[get_slice(gradients.shape, ind_j, features_axis)]
@@ -227,19 +227,19 @@ class BaseTaylorAnalysis(object):
             torch.Tensor: Third order taylorcoefficients of shape (batch, features).
         """
         # first order gradients
-        gradients = grad(pred, forward_kwargs.deriv_target, create_graph=True)[0]
+        gradients = grad(pred, forward_kwargs.tctensor, create_graph=True)[0]
         gradients = gradients.sum(
             axis=get_summation_indices(gradients.shape, features_axis)
         )
         # second order gradients
-        gradients = grad(
-            gradients[ind_i], forward_kwargs.deriv_target, create_graph=True
-        )[0]
+        gradients = grad(gradients[ind_i], forward_kwargs.tctensor, create_graph=True)[
+            0
+        ]
         gradients = gradients.sum(
             axis=get_summation_indices(gradients.shape, features_axis)
         )
         # third order gradients
-        gradients = grad(gradients[ind_j], forward_kwargs.deriv_target)[0]
+        gradients = grad(gradients[ind_j], forward_kwargs.tctensor)[0]
         # factor for all third order taylor terms
         gradients *= get_factorial_factors(ind_i, ind_j, ind_k)
         return gradients[get_slice(gradients.shape, ind_k, features_axis)]
@@ -259,7 +259,7 @@ class BaseTaylorAnalysis(object):
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
             output_node (Int): Node selection for evaluation.
             eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
-            features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs.tctensor. Defaults to -1.
 
         Raises:
             NotImplementedError: Only first, second and third order taylorcoefficients are supported.
@@ -269,9 +269,9 @@ class BaseTaylorAnalysis(object):
         """
 
         # Make prediction
-        forward_kwargs.deriv_target.requires_grad = True
+        forward_kwargs.tctensor.requires_grad = True
         self.zero_grad()
-        forward_kwargs.deriv_target.grad = None
+        forward_kwargs.tctensor.grad = None
         pred = self(**forward_kwargs)
 
         # select relevant predictions
@@ -299,7 +299,7 @@ class BaseTaylorAnalysis(object):
 
     def get_tc(
         self,
-        target_key: str,
+        key_to_tctensor: str,
         forward_kwargs: Dict[str, Any],
         idx_list: List[Tuple[int, ...]],
         *,
@@ -307,20 +307,20 @@ class BaseTaylorAnalysis(object):
         eval_max_output_node_only: Optional[bool] = True,
         reduce_func: Optional[Callable] = identity,
         features_axis: int = -1,
-        output_idx: Union[int, None] = None,
+        idx_to_tctensor: Union[int, None] = None,
         keep_model_output_idx: Union[int, None] = None,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
         Args:
-            target_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
+            key_to_tctensor (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
             forward_kwargs (Union[None, Dict[str, Any]]): Dictionary with forward arguments
             idx_list (List[Tuple[int, ...]]): List of indices for which the taylorcoefficients should be computed.
             output_node (Int, optional): Node selection for evaluation. Defaults to None.
             eval_max_output_node_only (Bool, optional): If True, only the node with the highest value is selected. Defaults to True.
             reduce_func (Callable, optional): Function to reduce the taylorcoefficients. Defaults to identity.
-            features_axis (int, optional): Dimension containing features in tensor forward_kwargs.deriv_target. Defaults to -1.
-            output_idx (Union[int, None], optional): Index of the target tensor if forward_kwargs[target_key] is a list. Defaults to None.
+            features_axis (int, optional): Dimension containing features in tensor forward_kwargs.tctensor. Defaults to -1.
+            idx_to_tctensor (Union[int, None], optional): Index of the target tensor if forward_kwargs[key_to_tctensor] is a list. Defaults to None.
             keep_model_output_idx (int, optional): Index of the model output if its output is a sequence. Defaults to 0.
         Raises:
             ValueError: idx_list must be a List of tuples!
@@ -329,7 +329,9 @@ class BaseTaylorAnalysis(object):
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
         """
 
-        forward_kwargs = CustomForwardDict(target_key, output_idx, forward_kwargs)
+        forward_kwargs = CustomForwardDict(
+            key_to_tctensor, idx_to_tctensor, forward_kwargs
+        )
 
         assert isinstance(reduce_func, Callable), "Reduce function must be callable!"
         assert isinstance(
