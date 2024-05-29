@@ -41,7 +41,7 @@ The output in this example is a dict containing the taylorcoefficients $<\mathrm
 
 ## Maximal flexibility
 
-This package is designed in a way to allow for maximal flexibility. While the reduction function has to be specified (e.g. mean, median, absolute values etc.) the visualization is up to the user. At this point you should have a look at our [example](example/example.py).
+This package is designed in a way to allow for maximal flexibility. While the reduction function has to be specified (e.g. mean, median, absolute values etc.) the visualization is up to the user. At this point you should have a look at our [example](example/example.ipynb).
 
 
 ## Authors
