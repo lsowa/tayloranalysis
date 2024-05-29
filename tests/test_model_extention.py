@@ -61,8 +61,8 @@ class TestBaseClass:
                     tc = self.model.get_tc(
                         "x",
                         forward_kwargs={"x": x_data},
-                        idx_list=[index],
-                        output_node=node,
+                        tc_idx_list=[index],
+                        selected_output_node=node,
                         eval_max_output_node_only=eval_max_output_node_only,
                     )
                     tc = tc[index]
@@ -71,8 +71,8 @@ class TestBaseClass:
                 tc = self.model.get_tc(
                     "x",
                     forward_kwargs={"x": x_data},
-                    idx_list=[index],
-                    output_node=None,
+                    tc_idx_list=[index],
+                    selected_output_node=None,
                     eval_max_output_node_only=eval_max_output_node_only,
                 )
                 tc = tc[index]

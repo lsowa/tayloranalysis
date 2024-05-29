@@ -67,8 +67,8 @@ class TestTCComputation(unittest.TestCase):
                 tc = _model.get_tc(
                     "point",
                     forward_kwargs={"point": _point},
-                    idx_list=[combination],
-                    features_axis=_feature_axis,
+                    tc_idx_list=[combination],
+                    tctensor_features_axis=_feature_axis,
                 )
                 tc = tc[combination].item()  # as float
                 with self.subTest(combination=combination, feature_axis=_feature_axis):
