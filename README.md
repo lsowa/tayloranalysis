@@ -27,11 +27,15 @@ model = ...
 model = extend_model(model)
 ```
 Compute taylorcoefficients: for example $<t_{0}>$, $<t_{0,1}>$ for a given sample x_test.
-Here you can also pass a reduction function to summarize the TCs, which are computed based on `x_test`
+Here you can also pass a reduction function to summarize the TCs, which are computed based on the `tctensor` `x_test`
 ```
-combinations = [(0,), (0,1)] 
+combinations = [(0,), (0,1)]
 x_test = torch.randn(#batch, #features)
-tc_dict = model.get_tc(x_test, combinations, reduce_func=torch.mean)
+forwards_kwargs = {"x": x_test, "more_inputs": misc}
+
+tc_dict = model.get_tc(forward_kwargs_tctensor_key="x",
+                        tc_idx_list=combinations, 
+                        reduce_func=torch.mean,)
 ```
 The output in this example is a dict containing the taylorcoefficients $<\mathrm{TC}_{0}>$, $<\mathrm{TC}_{0,1}>$.
 
