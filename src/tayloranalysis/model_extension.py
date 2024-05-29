@@ -28,7 +28,6 @@ def extend_model(
 
         model.get_tc = MethodType(BaseTaylorAnalysis.get_tc, model)
 
-        model._node_selection = MethodType(BaseTaylorAnalysis._node_selection, model)
         model._first_order = MethodType(BaseTaylorAnalysis._first_order, model)
         model._second_order = MethodType(BaseTaylorAnalysis._second_order, model)
         model._third_order = MethodType(BaseTaylorAnalysis._third_order, model)
