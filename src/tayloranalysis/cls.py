@@ -1,5 +1,5 @@
 import torch
-import multiprocessing as mp
+import multiprocess as mp
 
 from collections import Counter
 from math import factorial
@@ -11,10 +11,12 @@ from collections.abc import Sequence
 ##############################################
 # Helpers
 
+
 def _check_for_tuple(ind):
     if not isinstance(ind, tuple):
         raise ValueError("Indices must be tuple!")
     return ind
+
 
 def _get_factorial_factors(*indices: int) -> float:
     """Function to compute the factorial factors for the taylorcoefficients: Prod_n^len(indices) 1/n!
@@ -360,7 +362,6 @@ class BaseTaylorAnalysis(object):
             for ind in tc_idx_list
         ]
 
-
         output = {}
         if use_parallelization is not None:
             ctx = mp.get_context("spawn")
@@ -375,7 +376,7 @@ class BaseTaylorAnalysis(object):
         else:
             for arg in args:
                 # get TCs
-                result, ind= self._calculate_tc(*arg)
+                result, ind = self._calculate_tc(*arg)
                 # apply reduce function
                 output[ind] = reduce_func(result)
         return output

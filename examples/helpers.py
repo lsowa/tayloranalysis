@@ -133,3 +133,29 @@ def get_feature_combis(feature_list: list, combi_list: list):
         feature_combi = tuple(feature_list[val] for val in combination)
         feature_combinations.append(feature_combi)
     return feature_combinations
+
+
+def plot_results(losses, tcs, tc_labels, n=None):
+    if n is None:
+        n = len(tc_labels)
+
+    # Sample data for illustration
+    epochs = np.arange(1, len(losses) + 1)
+
+    # Plot Taylor coefficients on the left y-axis
+    plt.title("Taylor Coefficients and Losses during Training")
+    plt.plot(np.array(tcs)[:, :n], "--", label=tc_labels[:n])
+    plt.xlabel("Epoch")
+    plt.ylabel("Taylor Coefficient Value")
+    plt.tick_params(axis="y")
+    plt.legend(loc="upper right", bbox_to_anchor=(-0.2, 1.0))
+
+    # Create secondary y-axis for the loss values
+    plt.twinx()
+    plt.plot(epochs, losses, "-", label="Loss", color="black")
+    plt.ylabel("Loss")
+    plt.tick_params(axis="y")
+
+    # Show legend
+    plt.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
+    plt.show()
