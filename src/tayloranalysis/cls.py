@@ -1,5 +1,5 @@
 import torch
-import multiprocess as mp
+import multiprocessing as mp
 
 from collections import Counter
 from math import factorial
