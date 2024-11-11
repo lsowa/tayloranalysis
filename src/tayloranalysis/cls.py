@@ -320,7 +320,7 @@ class BaseTaylorAnalysis(object):
         tctensor_features_axis: int = -1,
         additional_idx_to_tctensor: Optional[int] = None,
         selected_model_output_idx: Optional[int] = None,
-        use_parallelization: Optional[int] = None,
+        n_processes: Optional[int] = None,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
@@ -334,7 +334,7 @@ class BaseTaylorAnalysis(object):
             tctensor_features_axis (int, optional): Dimension containing features in tctensor given in forward_kwargs. Defaults to -1.
             additional_idx_to_tctensor (int, optional): Index of the tctensor if forward_kwargs[forward_kwargs_tctensor_key] is a list. Defaults to None.
             selected_model_output_idx (int, optional): Index of the model output if its output is a sequence. Defaults to 0.
-            use_parallelization (int, optional): Number of processes to use for parallelization. If None, no multiprocessing is used at all. Defaults to None.
+            n_processes (int, optional): Number of processes to use for parallelization. If None, no multiprocessing is used at all. Defaults to None.
         Raises:
             ValueError: tc_idx_list must be a List of tuples!
 
@@ -363,9 +363,9 @@ class BaseTaylorAnalysis(object):
         ]
 
         output = {}
-        if use_parallelization is not None:
+        if n_processes is not None:
             ctx = mp.get_context("spawn")
-            with ctx.Pool(processes=use_parallelization) as pool:
+            with ctx.Pool(processes=n_processes) as pool:
                 # Map the process_individual_tc function to the arguments
                 results = pool.starmap(self._calculate_tc, args)
                 pool.close()

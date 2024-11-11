@@ -93,7 +93,7 @@ if __name__ == "__main__":  # Needed for multiprocessing!
     ### Training loop with Multiprocessing
 
     # The training loop is build up in the same way as in the DNN example.
-    # To use multiprocessing, you have to set `use_parallelization=3`, where `3` corresponds to three processes.
+    # To use multiprocessing, you have to set `n_processes=3`, where `3` corresponds to three processes.
 
     tcs_training = []
     x_train.requires_grad = True
@@ -112,7 +112,7 @@ if __name__ == "__main__":  # Needed for multiprocessing!
             forward_kwargs={"x": x_test.to(device)},
             tc_idx_list=combinations,
             reduce_func=reduce,
-            use_parallelization=3,
+            n_processes=3,
         )
         # here we directly unpack the dictionary values into a list
         tcs_training.append(list(tc_dict.values()))
