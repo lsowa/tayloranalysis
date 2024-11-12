@@ -88,7 +88,7 @@ class TestTCComputation(unittest.TestCase):
                     forward_kwargs={"point": _point},
                     tc_idx_list=[combination],
                     tctensor_features_axis=_feature_axis,
-                    use_parallelization=3,
+                    n_processes=3,
                 )
                 tc = tc[combination].item()  # as float
                 with self.subTest(combination=combination, feature_axis=_feature_axis):
