@@ -1,7 +1,8 @@
 *.pdf
-__pycache__/
+*__pycache__/*
 workspace.code-workspace
 .nfs*
 *.egg-info/
 *vscode*
 *.pyc
+examples/data/
