@@ -75,7 +75,7 @@ class TestTCComputation(unittest.TestCase):
                     # compare result to expected value
                     self.assertAlmostEqual(tc, self.solution_dict[combination])
 
-    def test_coefficients_multiprocessing(self):
+    def test_coefficients_multithreading(self):
         for combination in self.solution_dict.keys():
             for _model, _feature_axis, _point in zip(
                 self.models,
@@ -88,7 +88,7 @@ class TestTCComputation(unittest.TestCase):
                     forward_kwargs={"point": _point},
                     tc_idx_list=[combination],
                     tctensor_features_axis=_feature_axis,
-                    n_processes=3,
+                    n_threads=3,
                 )
                 tc = tc[combination].item()  # as float
                 with self.subTest(combination=combination, feature_axis=_feature_axis):

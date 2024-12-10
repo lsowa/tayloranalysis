@@ -1,12 +1,11 @@
 import torch
-import multiprocessing as mp
 
 from collections import Counter
 from math import factorial
 from torch.autograd import grad
 from typing import Tuple, List, Dict, Optional, Any, Union, Callable
 from collections.abc import Sequence
-
+from concurrent.futures import ThreadPoolExecutor
 
 ##############################################
 # Helpers
@@ -320,7 +319,7 @@ class BaseTaylorAnalysis(object):
         tctensor_features_axis: int = -1,
         additional_idx_to_tctensor: Optional[int] = None,
         selected_model_output_idx: Optional[int] = None,
-        n_processes: Optional[int] = None,
+        n_threads: Optional[int] = None,
     ) -> Dict[Tuple[int, ...], Any]:
         """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
@@ -334,7 +333,7 @@ class BaseTaylorAnalysis(object):
             tctensor_features_axis (int, optional): Dimension containing features in tctensor given in forward_kwargs. Defaults to -1.
             additional_idx_to_tctensor (int, optional): Index of the tctensor if forward_kwargs[forward_kwargs_tctensor_key] is a list. Defaults to None.
             selected_model_output_idx (int, optional): Index of the model output if its output is a sequence. Defaults to 0.
-            n_processes (int, optional): Number of processes to use for parallelization. If None, no multiprocessing is used at all. Defaults to None.
+            n_threads (int, optional): Number of threads to use for parallelization. If None, no multithreading is used at all. Defaults to None.
         Raises:
             ValueError: tc_idx_list must be a List of tuples!
 
@@ -364,13 +363,10 @@ class BaseTaylorAnalysis(object):
         ]
 
         output = {}
-        if n_processes is not None:
-            ctx = mp.get_context("spawn")
-            with ctx.Pool(processes=n_processes) as pool:
-                # Map the process_individual_tc function to the arguments
-                results = pool.starmap(self._calculate_tc, args)
-                pool.close()
-                pool.join()
+        if n_threads is not None:
+            with ThreadPoolExecutor(max_workers=n_threads) as executor:
+                futures = [executor.submit(self._calculate_tc, *arg) for arg in args]
+                results = [future.result() for future in futures]
 
             # Convert the results into the output dictionary
             output = {ind: reduce_func(result) for result, ind in results}
