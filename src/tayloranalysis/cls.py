@@ -341,6 +341,7 @@ class BaseTaylorAnalysis(object):
         Returns:
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
         """
+
         forward_kwargs = CustomForwardDict(
             forward_kwargs_tctensor_key, additional_idx_to_tctensor, forward_kwargs
         )
