@@ -1,4 +1,5 @@
 import torch
+import copy
 
 from collections import Counter
 from math import factorial
@@ -203,7 +204,7 @@ class BaseTaylorAnalysis(object):
         """
 
         # first order grads
-        gradients = grad(pred, forward_kwargs.tctensor)[0]
+        gradients = grad(pred, forward_kwargs.tctensor, retain_graph=True)[0]
 
         # get relevant taylorcoefficients
         tcs = {}
@@ -234,12 +235,16 @@ class BaseTaylorAnalysis(object):
             torch.Tensor: Second order taylorcoefficients of shape (batch, features).
         """
         # first order gradients
-        gradients = grad(pred, forward_kwargs.tctensor, create_graph=True)[0]
+        gradients = grad(
+            pred, forward_kwargs.tctensor, create_graph=True, retain_graph=True
+        )[0]
         gradients = gradients.sum(
             axis=_get_summation_indices(gradients.shape, tctensor_features_axis)
         )
         # second order gradients
-        gradients = grad(gradients[ind_i], forward_kwargs.tctensor)[0]
+        gradients = grad(gradients[ind_i], forward_kwargs.tctensor, retain_graph=True)[
+            0
+        ]
 
         # get relevant taylorcoefficients for ind_i tree
         tcs = {}
@@ -274,19 +279,26 @@ class BaseTaylorAnalysis(object):
             torch.Tensor: Third order taylorcoefficients of shape (batch, features).
         """
         # first order gradients
-        gradients = grad(pred, forward_kwargs.tctensor, create_graph=True)[0]
+        gradients = grad(
+            pred, forward_kwargs.tctensor, create_graph=True, retain_graph=True
+        )[0]
         gradients = gradients.sum(
             axis=_get_summation_indices(gradients.shape, tctensor_features_axis)
         )
         # second order gradients
-        gradients = grad(gradients[ind_i], forward_kwargs.tctensor, create_graph=True)[
-            0
-        ]
+        gradients = grad(
+            gradients[ind_i],
+            forward_kwargs.tctensor,
+            create_graph=True,
+            retain_graph=True,
+        )[0]
         gradients = gradients.sum(
             axis=_get_summation_indices(gradients.shape, tctensor_features_axis)
         )
         # third order gradients
-        gradients = grad(gradients[ind_j], forward_kwargs.tctensor)[0]
+        gradients = grad(gradients[ind_j], forward_kwargs.tctensor, retain_graph=True)[
+            0
+        ]
 
         # get relevant taylorcoefficients for ind_i, ind_j tree
         tcs = {}
@@ -300,6 +312,7 @@ class BaseTaylorAnalysis(object):
 
     def _calculate_tc(
         self,
+        pred,
         forward_kwargs: CustomForwardDict,
         selected_output_node: int,
         eval_max_output_node_only: bool,
@@ -310,6 +323,7 @@ class BaseTaylorAnalysis(object):
         """Method to calculate the taylorcoefficients based on the indices.
 
         Args:
+            pred (torch.Tensor): tensor with predictions.
             forward_kwargs (CustomForwardDict): (Custom) Dictionary with additional forward arguments
             selected_output_node (Int): Node selection for evaluation.
             eval_max_output_node_only (Bool): If True, only the node with the highest value is selected.
@@ -321,11 +335,6 @@ class BaseTaylorAnalysis(object):
         Returns:
             _type_: Output type is specified by the user defined reduce function.
         """
-
-        forward_kwargs.tctensor.requires_grad = True
-        self.zero_grad()
-        forward_kwargs.tctensor.grad = None
-        pred = self(**forward_kwargs)
 
         # select relevant predictions
         if isinstance(pred, Sequence):
@@ -369,7 +378,8 @@ class BaseTaylorAnalysis(object):
         selected_model_output_idx: Optional[int] = None,
         n_threads: Optional[int] = None,
     ) -> Dict[Tuple[int, ...], Any]:
-        """Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
+        """
+        Function to handle multiple indices and return the taylorcoefficients as a dictionary: to be used by the user.
 
         Args:
             forward_kwargs_tctensor_key (str): Key to input tensor in forward_kwargs. Based on this tensor the taylorcoefficients are computed.
@@ -389,20 +399,27 @@ class BaseTaylorAnalysis(object):
             Dict: Dictionary with taylorcoefficients. Values are set by the user within the reduce function. Keys are the indices (tuple).
         """
 
-        forward_kwargs = CustomForwardDict(
-            forward_kwargs_tctensor_key, additional_idx_to_tctensor, forward_kwargs
-        )
-
+        # check input
+        tc_idx_list = [_check_for_tuple(ind) for ind in tc_idx_list]
         assert isinstance(reduce_func, Callable), "Reduce function must be callable!"
         assert isinstance(
             selected_output_node, (int, tuple, type(None))
         ), "Node must be int, tuple or None!"
 
-        # check if indices are tuples
-        tc_idx_list = [_check_for_tuple(ind) for ind in tc_idx_list]
+        # wrap forward_kwargs in custom dict for easy access to tctensor
+        forward_kwargs = CustomForwardDict(
+            forward_kwargs_tctensor_key, additional_idx_to_tctensor, forward_kwargs
+        )
+
+        # make prediction with gradient tracking enabled for the tctensor
+        self.zero_grad()
+        forward_kwargs.tctensor.grad = None
+        forward_kwargs.tctensor.requires_grad = True
+        pred = self(**forward_kwargs)
 
         args = [
             (
+                pred,
                 forward_kwargs,
                 selected_output_node,
                 eval_max_output_node_only,
@@ -411,7 +428,6 @@ class BaseTaylorAnalysis(object):
                 ind,
             )
             for ind in create_tree_batches(tc_idx_list)
-            # for ind in tc_idx_list
         ]
 
         output = {}
@@ -420,13 +436,12 @@ class BaseTaylorAnalysis(object):
                 futures = [executor.submit(self._calculate_tc, *arg) for arg in args]
                 results = [future.result() for future in futures]
 
-            # Convert the results into the output dictionary
+            # collect results and apply reduce function
             for result in results:
                 for key, value in result.items():
                     output[key] = reduce_func(value)
         else:
             for arg in args:
-                # get TCs
                 result = self._calculate_tc(*arg)
                 # apply reduce function
                 for key, value in result.items():
