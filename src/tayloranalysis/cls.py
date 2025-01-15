@@ -1,5 +1,4 @@
 import torch
-import copy
 
 from collections import Counter
 from math import factorial
