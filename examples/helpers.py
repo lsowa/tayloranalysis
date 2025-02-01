@@ -13,13 +13,13 @@ def generate_combinations(numbers: Union[List, Tuple], length: int):
 
 
 mean_sig = [0.5, 0.5]
-cov_sig = [[1.0, 0.0], [0.0, 1.0]]
+cov_sig = [[1.0, 0.5], [0.5, 1.0]]
 
 mean_sig2 = [1, -1]
 cov_sig2 = [[0.5, 0.0], [0.0, 1.0]]
 
-mean_bkg = [-1.5, -1.5]
-cov_bkg = [[1.0, 0.0], [0.0, 1.0]]
+mean_bkg = [-0.5, -0.5]
+cov_bkg = [[1.0, -0.5], [-0.5, 1.0]]
 
 
 def gen_data(
@@ -120,10 +120,13 @@ class Mlp(nn.Module):
             x = mlplayer(x)
             x = torch.tanh(x)
 
-        # new x: (batch, 1)
+        # new x: (batch, classes)
         x = self.mlplayers[-1](x)
-        x = x.squeeze(-1)  # new x: (batch)
-        x = torch.sigmoid(x)
+        x = torch.softmax(x, dim=-1)
+
+        # for single node binary case use:
+        # x = x.squeeze(-1)
+        # x = torch.sigmoid(x)
         return x
 
 
@@ -156,6 +159,5 @@ def plot_results(losses, tcs, tc_labels, n=None):
     plt.ylabel("Loss")
     plt.tick_params(axis="y")
 
-    # Show legend
     plt.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
     plt.show()
